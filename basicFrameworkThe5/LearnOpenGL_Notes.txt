@@ -1,0 +1,16 @@
+For better OpenGL-Functions take Glew or Glad
+http://glad.dav1d.de/
+Version Glad: 3.3
+
+Structs in OpenGL:
+Structs have a great property in C++ that their memory layout is sequential.
+That is if we were to represent a struct as an array of data it would only contain
+the struct's variables in sequential order which directly translates to a float 
+(actually byte) array that we want for an array buffer
+
+Vertex vertex;
+vertex.Position  = glm::vec3(0.2f, 0.4f, 0.6f);
+vertex.Normal    = glm::vec3(0.0f, 1.0f, 0.0f);
+vertex.TexCoords = glm::vec2(1.0f, 0.0f);
+
+// = [0.2f, 0.4f, 0.6f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f];

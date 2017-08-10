@@ -43,18 +43,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="helper.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="loadPNG.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="times.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="mathConstants.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="Mesh.h">
       <Filter>OpenGL</Filter>
     </ClInclude>
@@ -66,6 +54,18 @@
     </ClInclude>
     <ClInclude Include="Model.h">
       <Filter>OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="helper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="loadPNG.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mathConstants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="times.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -79,6 +79,54 @@
       <Filter>Shader</Filter>
     </None>
     <None Include="shader\modelLoader.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\halfspaceFogTextured.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\halfspaceFogTextured.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\exponentialHalfspaceFogTextured.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\exponentialHalfspaceFogTextured.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\standardMiniColorFBO.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\standardMiniColorFBO.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\standardMiniDepthFBO.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\standardMiniDepthFBO.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\gbuffer.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\gbuffer.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\modelLoaderGbuffer.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\modelLoaderGbuffer.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\screenSpaceFog.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\screenSpaceFog.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\quadScreenSized.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\quadScreenSized.vs.glsl">
       <Filter>Shader</Filter>
     </None>
   </ItemGroup>

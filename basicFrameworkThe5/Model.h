@@ -51,6 +51,18 @@ public:
 			meshes[i].Draw(shader);
 	}
 
+	// draws only a single mesh of the model
+	void Draw(Shader shader, int number)
+	{
+		if (number >= meshes.size()) {
+			number = meshes.size() - 1;
+		}
+
+		//std::cout << "Draw mesh " << number << " from " << meshes.size() - 1 << std::endl;
+
+		meshes[number].Draw(shader);
+	}
+
 private:
 	/*  Functions   */
 	// loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.

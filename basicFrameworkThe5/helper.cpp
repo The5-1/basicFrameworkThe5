@@ -17,7 +17,7 @@ _CRT_SECURE_NO_DEPRECATE allows the use of fopen, _ftime, ...
 
 extern cameraSystem cam;
 
-extern glm::vec3 lightDir;
+//extern glm::vec3 lightDir;
 extern glm::mat4 projMatrix;
 extern glm::mat4 viewMatrix;
 
@@ -141,7 +141,7 @@ void initGL() {
 	projMatrix =  glm::perspective(70.0f, (GLfloat)WIDTH / (GLfloat)HEIGHT, 1.0f, 500.0f);
 	reshape(WIDTH, HEIGHT);
 
-	lightDir = glm::normalize(glm::vec3(0.f, 0.f, 1.f));
+	//lightDir = glm::normalize(glm::vec3(0.f, 0.f, 1.f));
 }
 
 void updateCamera() {
@@ -394,7 +394,6 @@ Fbo::Fbo(const string &name, int w, int h, int attachments)
 void Fbo::Bind() {
 
 	//glBindTexture(GL_TEXTURE_2D, 0); //Just to make sure the texture is not bound
-
 	gl_check_error("pre bind");
 	glBindFramebuffer(GL_FRAMEBUFFER, id);
 	gl_check_error("in bind");
@@ -1022,11 +1021,10 @@ void Timer::update() {
 /// Camera stuff
 cameraSystem::cameraSystem(float delta, float mouseDelta, glm::vec3 pos) : delta(delta), mouseDelta(mouseDelta) {
 	position = glm::vec4(pos, 1.0f);
-	viewDir = glm::normalize(-position);
+	viewDir = glm::normalize(glm::vec4(-0.92f, -0.36, -0.01, 1.0f));
+	//viewDir = glm::normalize(-position);
 	upDir    = glm::vec4(0,1, 0,0);
 	rightDir = glm::vec4(glm::normalize(glm::cross(glm::vec3(viewDir), glm::vec3(upDir))), 0.f);
-	//upDir    = glm::vec4(glm::normalize(glm::cross(glm::vec3(rightDir), glm::vec3(viewDir))), 0.f);
-
 }
 
 void cameraSystem::moveForward(float delta) {

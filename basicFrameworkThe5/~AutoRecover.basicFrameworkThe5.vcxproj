@@ -123,22 +123,37 @@
     <Text Include="LearnOpenGL_Notes.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="camera.h" />
     <ClInclude Include="helper.h" />
     <ClInclude Include="loadPNG.h" />
     <ClInclude Include="mathConstants.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="SimpleModels.h" />
+    <ClInclude Include="Skybox.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="times.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shader\exponentialHalfspaceFogTextured.fs.glsl" />
     <None Include="shader\exponentialHalfspaceFogTextured.vs.glsl" />
+    <None Include="shader\gbuffer.fs.glsl" />
+    <None Include="shader\gbuffer.vs.glsl" />
     <None Include="shader\halfspaceFogTextured.fs.glsl" />
     <None Include="shader\halfspaceFogTextured.vs.glsl" />
     <None Include="shader\modelLoader.fs.glsl" />
     <None Include="shader\modelLoader.vs.glsl" />
+    <None Include="shader\modelLoaderGbuffer.fs.glsl" />
+    <None Include="shader\modelLoaderGbuffer.vs.glsl" />
+    <None Include="shader\noiseFunction.fs.glsl" />
+    <None Include="shader\noiseFunction.vs.glsl" />
+    <None Include="shader\quadScreenSized.fs.glsl" />
+    <None Include="shader\quadScreenSized.vs.glsl" />
+    <None Include="shader\screenSpaceFog.fs.glsl" />
+    <None Include="shader\screenSpaceFog.vs.glsl" />
+    <None Include="shader\screenSpaceNoiseFog.fs.glsl" />
+    <None Include="shader\screenSpaceNoiseFog.vs.glsl" />
     <None Include="shader\standard.fs.glsl" />
     <None Include="shader\standard.vs.glsl" />
     <None Include="shader\standardMiniColorFBO.fs.glsl" />

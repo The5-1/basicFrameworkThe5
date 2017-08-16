@@ -12,8 +12,6 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "times.h"
-
 #define WIDTH 1024
 #define HEIGHT 768
 
@@ -36,22 +34,22 @@ void loadShader(bool init);
 
 
 // uniform helper
-void uniform(int program, const std::string &name, const glm::mat4 &mat);
-void uniform(int program, const std::string &name, const glm::vec4 &v);
-void uniform(int program, const std::string &name, const glm::vec3 &v);
-void uniform(int program, const std::string &name, const glm::vec2 &v);
-void uniform(int program, const std::string &name, float f);
-void uniform(int program, const std::string &name, const float* f, const int count);
-void uniform(int program, const std::string &name, int i);
-void uniform(int program, const std::string &name, int i, int k);
-void uniform(int program, const std::string &name, bool b);
+//void uniform(int program, const std::string &name, const glm::mat4 &mat);
+//void uniform(int program, const std::string &name, const glm::vec4 &v);
+//void uniform(int program, const std::string &name, const glm::vec3 &v);
+//void uniform(int program, const std::string &name, const glm::vec2 &v);
+//void uniform(int program, const std::string &name, float f);
+//void uniform(int program, const std::string &name, const float* f, const int count);
+//void uniform(int program, const std::string &name, int i);
+//void uniform(int program, const std::string &name, int i, int k);
+//void uniform(int program, const std::string &name, bool b);
 
 bool _gl_check_error(const char* arg, const char *file, int line, const char *function);
 
 static string textFileRead(const char *fileName);
 
-bool createProgram_VF(const char *VSfile, const char *FSfile, GLuint *handle);
-bool createProgram_C(const char *CSfile, GLuint *handle);
+//bool createProgram_VF(const char *VSfile, const char *FSfile, GLuint *handle);
+//bool createProgram_C(const char *CSfile, GLuint *handle);
 
 // Texture
 class Tex {
@@ -100,6 +98,17 @@ protected:
 	GLuint vbo[2];
 };
 
+// Simple Cube
+class simpleCube
+{
+public:
+	void upload();
+	void draw();
+protected:
+	vector<unsigned int> indices;
+	vector<glm::vec3> vertices;
+	GLuint vbo[2];
+};
 
 // very simple geometry
 class simpleModel
@@ -160,17 +169,6 @@ public:
 
 
 // timer
-class Timer
-{
-public:
-	Timer();
-	void update();
-	double intervall;
-private:
-	timeval tv;
-	double startTime;
-};
-
 
 // camera sutff
 class cameraSystem 
@@ -181,6 +179,8 @@ public:
 	glm::vec4 viewDir;    // viewing direction
 	glm::vec4 upDir;      // up-vector
 	glm::vec4 rightDir;   // right-vector (cross product of viewing- and up-direction)
+
+	glm::mat4 cameraRotation;
 
 	int currentX, currentY;
 	float delta, mouseDelta;
@@ -198,6 +198,12 @@ public:
 	void yaw(float angle);
 	void pitch(float angle);
 	void roll(float angle);
+
+	void Update();
+
+private:
+	void updateCameraMatrix();
+	void updateRotationMatrix(glm::mat4 view);
 
 };
 

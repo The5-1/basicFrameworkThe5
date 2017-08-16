@@ -22,6 +22,30 @@
     <Filter Include="Shader">
       <UniqueIdentifier>{d265b1a5-8912-4538-9b41-b1ce283ba235}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{497e6e87-ff2a-42c5-8693-185b8314a700}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\Fog">
+      <UniqueIdentifier>{8107ce4d-a075-4225-a6c7-950fbd13b914}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\Debug">
+      <UniqueIdentifier>{c8c40e8f-b543-4788-9928-5547f9e9ad8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\Noise">
+      <UniqueIdentifier>{931ddf16-17f1-40ee-a626-fda4afd04cf3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\GBuffer">
+      <UniqueIdentifier>{0ef8c35d-6418-4c57-ba8a-9cd05b38d608}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Skybox">
+      <UniqueIdentifier>{3f4a212a-f572-44c7-af9b-51827f4bf234}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\Skybox">
+      <UniqueIdentifier>{3720df3d-2ce3-4043-8573-fc6910997df7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CameraSystem">
+      <UniqueIdentifier>{4bdee340-faf5-4954-b291-b5f56c0c8a4e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -67,6 +91,15 @@
     <ClInclude Include="times.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="SimpleModels.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Skybox.h">
+      <Filter>Skybox</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shader\standard.fs.glsl">
@@ -81,53 +114,71 @@
     <None Include="shader\modelLoader.vs.glsl">
       <Filter>Shader</Filter>
     </None>
-    <None Include="shader\halfspaceFogTextured.fs.glsl">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="shader\halfspaceFogTextured.vs.glsl">
-      <Filter>Shader</Filter>
-    </None>
     <None Include="shader\exponentialHalfspaceFogTextured.fs.glsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Fog</Filter>
     </None>
     <None Include="shader\exponentialHalfspaceFogTextured.vs.glsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Fog</Filter>
     </None>
-    <None Include="shader\standardMiniColorFBO.fs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\halfspaceFogTextured.fs.glsl">
+      <Filter>Shader\Fog</Filter>
     </None>
-    <None Include="shader\standardMiniColorFBO.vs.glsl">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="shader\standardMiniDepthFBO.fs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\halfspaceFogTextured.vs.glsl">
+      <Filter>Shader\Fog</Filter>
     </None>
     <None Include="shader\standardMiniDepthFBO.vs.glsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Debug</Filter>
     </None>
-    <None Include="shader\gbuffer.fs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\standardMiniColorFBO.fs.glsl">
+      <Filter>Shader\Debug</Filter>
     </None>
-    <None Include="shader\gbuffer.vs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\standardMiniColorFBO.vs.glsl">
+      <Filter>Shader\Debug</Filter>
     </None>
-    <None Include="shader\modelLoaderGbuffer.fs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\standardMiniDepthFBO.fs.glsl">
+      <Filter>Shader\Debug</Filter>
     </None>
-    <None Include="shader\modelLoaderGbuffer.vs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\noiseFunction.fs.glsl">
+      <Filter>Shader\Noise</Filter>
     </None>
-    <None Include="shader\screenSpaceFog.fs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\noiseFunction.vs.glsl">
+      <Filter>Shader\Noise</Filter>
     </None>
     <None Include="shader\screenSpaceFog.vs.glsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Fog</Filter>
     </None>
-    <None Include="shader\quadScreenSized.fs.glsl">
-      <Filter>Shader</Filter>
+    <None Include="shader\screenSpaceFog.fs.glsl">
+      <Filter>Shader\Fog</Filter>
+    </None>
+    <None Include="shader\screenSpaceNoiseFog.fs.glsl">
+      <Filter>Shader\Fog</Filter>
+    </None>
+    <None Include="shader\screenSpaceNoiseFog.vs.glsl">
+      <Filter>Shader\Fog</Filter>
+    </None>
+    <None Include="shader\gbuffer.fs.glsl">
+      <Filter>Shader\GBuffer</Filter>
+    </None>
+    <None Include="shader\gbuffer.vs.glsl">
+      <Filter>Shader\GBuffer</Filter>
+    </None>
+    <None Include="shader\modelLoaderGbuffer.vs.glsl">
+      <Filter>Shader\GBuffer</Filter>
+    </None>
+    <None Include="shader\modelLoaderGbuffer.fs.glsl">
+      <Filter>Shader\GBuffer</Filter>
     </None>
     <None Include="shader\quadScreenSized.vs.glsl">
-      <Filter>Shader</Filter>
+      <Filter>Shader\Debug</Filter>
+    </None>
+    <None Include="shader\quadScreenSized.fs.glsl">
+      <Filter>Shader\Debug</Filter>
+    </None>
+    <None Include="shader\skybox.fs.glsl">
+      <Filter>Shader\Skybox</Filter>
+    </None>
+    <None Include="shader\skybox.vs.glsl">
+      <Filter>Shader\Skybox</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -20,14 +20,27 @@ using namespace std;
 struct Vertex {
 	// position
 	glm::vec3 Position;
+
 	// normal
 	glm::vec3 Normal;
+
 	// texCoords
 	glm::vec2 TexCoords;
+
 	// tangent
 	glm::vec3 Tangent;
+
 	// bitangent
 	glm::vec3 Bitangent;
+
+	//Constructors
+	Vertex() {
+	}
+
+	Vertex(glm::vec3 _Position) {
+		this->Position = _Position;
+	}
+
 };
 
 struct Texture {
@@ -46,6 +59,9 @@ public:
 
 	/*  Functions  */
 	// constructor
+	Mesh() {
+	}
+
 	Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures)
 	{
 		this->vertices = vertices;
@@ -54,6 +70,8 @@ public:
 
 		// now that we have all the required data, set the vertex buffers and its attribute pointers.
 		setupMesh();
+
+		//std::cout << "Model has " << this->textures.size() << " Textures" << std::endl;
 	}
 
 	// render the mesh
@@ -94,6 +112,66 @@ public:
 		// always good practice to set everything back to defaults once configured.
 		glActiveTexture(GL_TEXTURE0);
 	}
+
+/* *********************************************************************************************************
+Very Simple Meshes
+********************************************************************************************************* */
+	void createScreenQuad() {
+		//this->vertices = vector<glm::vec3>(4);
+
+		this->vertices = { Vertex(glm::vec3(-1, -1, 0)),
+			Vertex(glm::vec3(1, -1, 0)),
+			Vertex(glm::vec3(1,  1, 0)),
+			Vertex(glm::vec3(-1,  1, 0)) };
+
+		this->indices = { 0, 1, 3, 1, 2, 3 };
+
+		setupMesh();
+	}
+
+void createBox() {
+		this->vertices = {
+			Vertex(glm::vec3(0.0,  0.0,  0.0)),
+			Vertex(glm::vec3(0.0,  0.0,  1.0)),
+			Vertex(glm::vec3(0.0,  1.0,  0.0)),
+			Vertex(glm::vec3(0.0,  1.0,  1.0)),
+			Vertex(glm::vec3(1.0,  0.0,  0.0)),
+			Vertex(glm::vec3(1.0,  0.0,  1.0)),
+			Vertex(glm::vec3(1.0,  1.0,  0.0)),
+			Vertex(glm::vec3(1.0,  1.0,  1.0))
+		};
+		this->indices = { 1, 7, 5,
+							1, 3, 7,
+							1, 4, 3,
+							1, 2, 4,
+							3, 8, 7,
+							3, 4, 8,
+							5, 7, 8,
+							5, 8, 6,
+							1, 5, 6,
+							1, 6, 2,
+							2, 6, 8,
+							2, 8, 4 };
+		for (int i = 0; i < indices.size(); i++) {
+			this->indices[i] -= 1;
+		}
+
+		setupMesh();
+}
+
+
+/* *********************************************************************************************************
+Draw Wireframe
+********************************************************************************************************* */
+void enableWireframe() {
+	glPolygonMode(GL_FRONT, GL_LINE);
+	glPolygonMode(GL_BACK, GL_LINE);
+}
+
+void disableWireframe() {
+	glPolygonMode(GL_FRONT, GL_FILL);
+	glPolygonMode(GL_BACK, GL_FILL);
+}
 
 private:
 	/*  Render data  */

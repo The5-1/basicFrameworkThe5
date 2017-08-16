@@ -3,16 +3,28 @@ out vec4 FragColor;
 
 in vec2 TexCoords;
 
-uniform sampler2D texture_albedo;
+uniform sampler2D texture_diffuse;
+uniform sampler2D texture_specular;
 uniform sampler2D texture_normal;
+uniform sampler2D texture_height;
 
-layout (location = 0) out vec4 albedo;
-layout (location = 1) out vec3 normal;
+/*
+out vec4 albedo;
+out vec4 specular;
+out vec4 normal;
+out vec4 height;
+*/
 
 void main()
-{    
-    albedo = texture(texture_albedo, TexCoords);
-    normal = texture(texture_normal, TexCoords).xyz;
+{ 
 
+FragColor = texture(texture_diffuse, TexCoords);
+   
+/*
+    albedo = texture(texture_diffuse, TexCoords);
+    specular = texture(texture_specular, TexCoords);
+    normal = texture(texture_normal, TexCoords);
+    height = texture(texture_height, TexCoords);
+*/
 }
 

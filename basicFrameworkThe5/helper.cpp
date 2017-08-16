@@ -38,7 +38,8 @@ void keyboard(unsigned char key, int x, int y) {
 	if (key == 'd') cam.moveRight(cam.delta);
 	if (key == 'q') cam.roll(0.01f*cam.mouseDelta);
 	if (key == 'e') cam.roll(0.01f*-cam.mouseDelta);
-	updateCamera();
+	//updateCamera();
+	cam.Update();
 
 	switch(key) {
 
@@ -119,7 +120,8 @@ void onMouseMove(int x, int y) {
 	cam.currentX = x;
 	cam.currentY = y;
 
-	updateCamera();
+	//updateCamera();
+	cam.Update();
 }
 
 void onIdle() {}
@@ -140,10 +142,9 @@ void initGL() {
 	viewMatrix = glm::lookAt(eye,center,up);
 	projMatrix =  glm::perspective(70.0f, (GLfloat)WIDTH / (GLfloat)HEIGHT, 1.0f, 500.0f);
 	reshape(WIDTH, HEIGHT);
-
-	//lightDir = glm::normalize(glm::vec3(0.f, 0.f, 1.f));
 }
 
+/*
 void updateCamera() {
 	const glm::vec3 eye =    glm::vec3(cam.position);
 	const glm::vec3 center = glm::vec3(cam.position + cam.viewDir);
@@ -151,7 +152,7 @@ void updateCamera() {
 	viewMatrix = glm::lookAt(eye,center,up);
 	glutPostRedisplay();
 }
-
+*/
 
 
 void reshape(int w, int h) {
@@ -164,53 +165,6 @@ void reshape(int w, int h) {
 	}
 
 	TwWindowSize(w,h);
-}
-
-
-// uniform helper
-void uniform(int program, const std::string &name, const glm::mat4 &mat) {
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniformMatrix4fv(loc, 1, GL_FALSE, value_ptr(mat));
-}
-	
-void uniform(int program, const std::string &name, const glm::vec4 &v) {
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniform4fv(loc, 1, value_ptr(v));
-}
-	
-void uniform(int program, const std::string &name, const glm::vec3 &v) {
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniform3fv(loc, 1, value_ptr(v));
-}
-
-void uniform(int program, const std::string & name, const glm::vec2 & v)
-{
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniform2fv(loc, 1, value_ptr(v));
-}
-	
-void uniform(int program, const std::string &name, int i) {
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniform1i(loc, i);
-}
-
-void uniform(int program, const std::string &name, int i, int k) {
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniform2i(loc, i ,k);
-}
-
-void uniform(int program, const std::string &name, float f) {
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniform1f(loc, f);
-}
-
-void uniform(int program, const std::string &name, const float* f, const int count) {
-	int loc = glGetUniformLocation(program, name.c_str());
-	glUniform1fv(loc, count, f);
-}
-
-void uniform(int program, const std::string &name, bool b) {
-	uniform(program, name, (int)b);
 }
 
 bool _gl_check_error(const char* arg, const char *file, int line, const char *function)
@@ -258,99 +212,6 @@ static string textFileRead(const char *fileName)
 		cout<<"Unable to open "<<fileName<<"\n";
 
     return fileString;
-}
-
-bool createProgram_VF(const char *VSfile, const char *FSfile, GLuint *handle)
-{
-	
-	GLint compiled;
-	char infoLog[4096];
-	int infoLogLength;
-	
-	string codeVS = textFileRead(VSfile);
-	const char *VshaderCode = codeVS.c_str();
-
-	string codeFS = textFileRead(FSfile);
-	const char *FshaderCode = codeFS.c_str();
-
-
-	//compile vertex shader:
-	GLuint Vshader= glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(Vshader,1,&VshaderCode,0);
-	glCompileShader(Vshader);
-	glGetShaderiv(Vshader,GL_COMPILE_STATUS, &compiled);
-	if ( !compiled) 
-	{
-		// Print out the info log
-		glGetShaderInfoLog(Vshader, sizeof(infoLog), &infoLogLength, infoLog);
-		if(infoLogLength > 0)
-		{
-			printf("CompileShader() infoLog for Vertex Shader %s \n%s\n",VSfile, infoLog);
-		}
-		glDeleteShader(Vshader);
-		return false;
-	}
-
-	//compile Fragment shader:
-	GLuint Fshader= glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(Fshader,1,&FshaderCode,0);
-	glCompileShader(Fshader);
-	glGetShaderiv(Fshader,GL_COMPILE_STATUS, &compiled);
-	if ( !compiled) 
-	{
-		// Print out the info log
-		glGetShaderInfoLog(Fshader, sizeof(infoLog), &infoLogLength, infoLog);
-		if(infoLogLength > 0)
-		{
-			printf("CompileShader() infoLog for Fragment Shader %s\n%s\n", FSfile, infoLog);
-		}
-		glDeleteShader(Fshader);
-		return false;
-	}
-
-
-	*handle = glCreateProgram();
-	glAttachShader(*handle, Vshader);
-	glAttachShader(*handle, Fshader);
-	glDeleteShader(Vshader);
-	glDeleteShader(Fshader);
-	glLinkProgram(*handle);
-
-	return true;
-}
-
-// this function creates Shader Program which consists only of a vertex shader
-bool createProgram_C(const char *CSfile, GLuint *handle) {
-
-	GLint compiled;
-	char infoLog[4096];
-	int infoLogLength;
-	string code = textFileRead(CSfile);
-
-	const char *CshaderCode = code.c_str();
-
-	//compile vertex shader:
-	GLuint Cshader= glCreateShader(GL_COMPUTE_SHADER);
-	glShaderSource(Cshader,1,&CshaderCode,0);
-	glCompileShader(Cshader);
-	glGetShaderiv(Cshader,GL_COMPILE_STATUS, &compiled);
-	if ( !compiled) {
-		// Print out the info log
-		glGetShaderInfoLog(Cshader, sizeof(infoLog), &infoLogLength, infoLog);
-		if(infoLogLength > 0)
-		{
-			printf("CompileShader() infoLog %s \n%s\n",CSfile, infoLog);
-			glDeleteShader(Cshader);
-			return false;
-		}
-	}
-
-	*handle = glCreateProgram();
-	glAttachShader(*handle, Cshader);
-	glDeleteShader(Cshader);
-
-	glLinkProgram(*handle);
-	return true;
 }
 
 // Texture
@@ -486,6 +347,36 @@ void simpleQuad::draw() {
 	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 }
 
+void simpleCube::upload() {
+	vertices = vector<glm::vec3>(4);
+	vertices = { glm::vec3(0.0,  0.0,  0.0),
+					glm::vec3(0.0,  0.0,  1.0),
+					glm::vec3(0.0,  1.0,  0.0),
+					glm::vec3(0.0,  1.0,  1.0),
+					glm::vec3(1.0,  0.0,  0.0),
+					glm::vec3(1.0,  0.0,  1.0),
+					glm::vec3(1.0,  1.0,  0.0),
+					glm::vec3(1.0,  1.0,  1.0) };
+
+	indices = vector<unsigned int>(6);
+	indices = { 1,7,5, 1,3,7, 1,4,3, 1,2,4, 3,8,7, 3,4,8, 5,7,8, 5,8,6, 1,5,6, 1,6,2, 2,6,8, 2,8,4};
+
+
+	glGenBuffers(2, vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float) * 3, vertices.data(), GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[1]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+}
+
+void simpleCube::draw() {
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[1]);
+	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+}
 
 // simple Model
 simpleModel::simpleModel () {};
@@ -1001,28 +892,10 @@ int Image::makeTexture() {
 	return index;
 }
 
-
-// timer
-
-Timer::Timer() {
-	gettimeofday(&tv, 0);
-	startTime = (double)tv.tv_sec + (double)tv.tv_usec/1000.0;
-}
-
-void Timer::update() {
-	gettimeofday(&tv, 0);
-	double stoppedAt = (double)tv.tv_sec + (double)tv.tv_usec/(1000.0 * 1000.0);
-	intervall = stoppedAt - startTime;
-	startTime = stoppedAt;
-}
-
-
-
 /// Camera stuff
 cameraSystem::cameraSystem(float delta, float mouseDelta, glm::vec3 pos) : delta(delta), mouseDelta(mouseDelta) {
 	position = glm::vec4(pos, 1.0f);
 	viewDir = glm::normalize(glm::vec4(-0.92f, -0.36, -0.01, 1.0f));
-	//viewDir = glm::normalize(-position);
 	upDir    = glm::vec4(0,1, 0,0);
 	rightDir = glm::vec4(glm::normalize(glm::cross(glm::vec3(viewDir), glm::vec3(upDir))), 0.f);
 }
@@ -1069,3 +942,27 @@ void cameraSystem::roll(float angle) {
 	//upDir = R*upDir;
 }
 
+
+void cameraSystem::updateCameraMatrix() {
+	const glm::vec3 eye = glm::vec3(this->position);
+	const glm::vec3 center = glm::vec3(this->position + cam.viewDir);
+	const glm::vec3 up = glm::vec3(this->upDir);
+	viewMatrix = glm::lookAt(eye, center, up);
+}
+
+void cameraSystem::updateRotationMatrix(glm::mat4 view) {
+	cameraRotation = view;
+	cameraRotation[3][0] = 0.0f;
+	cameraRotation[3][1] = 0.0f;
+	cameraRotation[3][2] = 0.0f;
+}
+
+
+
+void cameraSystem::Update(){
+
+	updateCameraMatrix();
+	updateRotationMatrix(viewMatrix); //just do it right here
+
+	glutPostRedisplay();
+}

@@ -6,6 +6,9 @@
 #include <sys/types.h>
 #include <winsock2.h>
 
+/* **************************************************************************************
+0. Convert the Windows time-Commands to Linux standards
+************************************************************************************** */
 /*
 Source for this Code: https://www.codefull.org/2015/12/systime-h-replacement-for-windows/
 */
@@ -36,6 +39,24 @@ All times are in CLK_TCKths of a second.  */
 clock_t times(tms *__buffer);
 
 typedef long long suseconds_t;
+
+
+/* **************************************************************************************
+1. Timer Class to give current time and time steps
+************************************************************************************** */
+
+class Timer
+{
+public:
+	Timer();
+	void update();
+	double intervall;
+	double startTime;
+	double currentTime = 0.0;
+
+private:
+	timeval tv;
+};
 
 #endif
 #endif

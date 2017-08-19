@@ -9,6 +9,10 @@
 #include "Model.h"
 #include "Skybox.h"
 #include "times.h"
+
+#include "FBO.h"
+#include "Texture.h"
+
 //Time
 Timer timer;
 
@@ -50,10 +54,17 @@ Shader exponentialHalfspaceFogTextured;
 Shader screenSpaceFogShader;
 Shader screenSpaceNoiseFogShader;
 
+//Skybox
 Shader skyboxShader;
+
+//FBO-Shader
+Shader depthOnlyShader;
 
 //Noise
 Shader noiseFunctionShader;
+
+//Shadow
+Shader shadowMapShader;
 
 //Debug-Shader
 Shader quadScreenSizedShader;
@@ -65,13 +76,23 @@ Model nanosuitModel;
 Model sponzaModel;
 
 //Frame buffer object
-Fbo *fbo = 0;
-Tex *diffuse = 0, *normal = 0, *position = 0, *depth = 0;
-Tex *noiseTex = 0;
+FBO *fbo = 0;
+Texture *diffuse = 0, *normal = 0, *position = 0, *depth = 0;
+
+//Frame buffer object with only depth
+FBO *fbo2Depth = 0;
+Texture *depth2 = 0;
 
 //Tweakbar
 TwBar *tweakBar;
-typedef enum { STANDARD_SHADER, DEBUG_SHADER, FOG_SHADER, EXP_FOG_SHADER, FOG_SCREENSPACE_SHADER, FOG_SCREENSPACE_NOISE_SHADER, NOISE_SHADER} SHADER_TYPE;
+enum SHADER_TYPE { STANDARD_SHADER,
+				SHADOW_MAP_SHADER,
+				DEBUG_SHADER, 
+				FOG_SHADER, 
+				EXP_FOG_SHADER, 
+				FOG_SCREENSPACE_SHADER, 
+				FOG_SCREENSPACE_NOISE_SHADER, 
+				NOISE_SHADER};
 SHADER_TYPE current_Shader = STANDARD_SHADER;
 
 //Fog-Variables
@@ -99,11 +120,17 @@ void setupTweakBar() {
 	tweakBar = TwNewBar("Settings");
 
 	// Array of drop down items
-	TwEnumVal Shader_array[] = { { STANDARD_SHADER, "Standard" }, { DEBUG_SHADER, "Debug" }, { FOG_SHADER, "Fog" },{ EXP_FOG_SHADER, "Exponential fog" },
-								{FOG_SCREENSPACE_SHADER, "Screenspace Fog"}, {FOG_SCREENSPACE_NOISE_SHADER, "Screenspace Noise Fog" }, {NOISE_SHADER, "Noise Textures"} };
+	TwEnumVal Shader_array[] = { { STANDARD_SHADER, "Standard" }, 
+									{SHADOW_MAP_SHADER, "Shadow Map" },
+									{DEBUG_SHADER, "Debug" },
+									{FOG_SHADER, "Fog" },
+									{EXP_FOG_SHADER, "Exponential fog" },
+									{FOG_SCREENSPACE_SHADER, "Screenspace Fog"}, 
+									{FOG_SCREENSPACE_NOISE_SHADER, "Screenspace Noise Fog" },
+									{NOISE_SHADER, "Noise Textures"} };
 
 	// ATB identifier for the array
-	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 7);
+	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 8);
 
 	// Link it to the tweak bar
 	TwAddVarRW(tweakBar, "Shader", ShaderTwType, &current_Shader, NULL);
@@ -154,6 +181,9 @@ void updateTweakBar() {
 	//Only show what we need
 	switch (current_Shader) {
 		case STANDARD_SHADER: 
+			break;
+
+		case SHADOW_MAP_SHADER:
 			break;
 
 		case DEBUG_SHADER:
@@ -210,28 +240,13 @@ void init() {
 }
 
 void initFBO() {
-	glEnable(GL_TEXTURE_2D);
-	fbo = new Fbo("DR", WIDTH, HEIGHT, 3);
-	gl_check_error("fbo");
+	fbo = new FBO("Gbuffer", WIDTH, HEIGHT, FBO_GBUFFER);
+	gl_check_error("fbo 1");
 
-	diffuse = new Tex(WIDTH, HEIGHT, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("diffuse tex");
-	normal = new Tex(WIDTH, HEIGHT, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("normal tex");
-	position = new Tex(WIDTH, HEIGHT, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("position tex");
-	depth = new Tex(WIDTH, HEIGHT, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT); gl_check_error("depth tex");
+	//Only depth FBO
+	fbo2Depth = new FBO("Depth", WIDTH, HEIGHT, FBO_DEPTH);
+	gl_check_error("post fbo2Depth setup");
 
-	fbo->Bind();
-	fbo->AddTextureAsColorbuffer("diffuse", diffuse);
-	fbo->AddTextureAsColorbuffer("normal", normal);
-	fbo->AddTextureAsColorbuffer("position", position);
-	fbo->AddTextureAsDepthbuffer(depth);
-	fbo->Check();
-	fbo->Unbind();
-	gl_check_error("post fbo setup");
-}
-
-void initNoiseTex() {
-	glEnable(GL_TEXTURE_2D);
-	noiseTex = new Tex(WIDTH, HEIGHT, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("noise tex");
 }
 
 void loadShader(bool init) {
@@ -255,8 +270,17 @@ void loadShader(bool init) {
 
 	//Skybox
 	skyboxShader = Shader("./shader/skybox.vs.glsl", "./shader/skybox.fs.glsl");
+
+	//Shadow 
+	shadowMapShader = Shader("./shader/shadowMap.vs.glsl", "./shader/shadowMap.fs.glsl");
+
+	//FBO-Shader
+	depthOnlyShader = Shader("./shader/depthOnly.vs.glsl", "./shader/depthOnly.fs.glsl");
 }
 
+/* *********************************************************************************************************
+Sponza Scenes
+********************************************************************************************************* */
 void sponzaStandardScene(){
 	skyboxShader.enable();
 	skyboxShader.uniform("projMatrix", projMatrix);
@@ -288,6 +312,46 @@ void sponzaStandardScene(){
 	boxMesh.Draw(basicShader);
 	basicShader.disable();
 
+}
+
+void sponzaShadowMap() {
+	fbo2Depth->Bind();
+	{
+		glClear(GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
+
+		depthOnlyShader.enable();
+
+		float near_plane = 1.0f, far_plane = 1000.0f;
+		glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+
+		glm::vec3 lightPosition = glm::vec3(55.80f, 55.80f, -0.88f);
+		glm::vec3 lightTarget = glm::vec3(0.58f, -0.38f, 0.0f);
+		glm::vec3 lightUp = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::mat4 lightView = glm::lookAt(lightPosition, lightTarget, lightUp);
+
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+		depthOnlyShader.uniform("lightSpaceMatrix", lightSpaceMatrix);
+
+		glm::mat4 modelMatrix;
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+		depthOnlyShader.uniform("modelMatrix", modelMatrix);
+
+		sponzaModel.Draw(depthOnlyShader); 
+
+		depthOnlyShader.enable();	
+	}
+	fbo2Depth->Unbind();
+
+	standardMiniDepthFboShader.enable();
+	fbo2Depth->bindAllTextures();
+	standardMiniDepthFboShader.uniform("tex", 0);
+	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.5f, 0.5f));
+	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	quad->draw();
+	fbo2Depth->unbindAllTextures();
+	standardMiniDepthFboShader.disable();
 }
 
 void sponzaDebugScene() {
@@ -491,31 +555,22 @@ void sponzaFogScreenspaceScene() {
 	screenSpaceFogShader.uniform("c", c_ScreenSpace);
 	screenSpaceFogShader.uniform("time", (float)timer.intervall);
 
-	glActiveTexture(GL_TEXTURE0);
-	diffuse->Bind();
+	fbo->bindAllTextures();
 	screenSpaceFogShader.uniform("diffuseTex", 0);
-
-	glActiveTexture(GL_TEXTURE1);
-	normal->Bind();
 	screenSpaceFogShader.uniform("normalTex", 1);
-
-	glActiveTexture(GL_TEXTURE2);
-	position->Bind();
 	screenSpaceFogShader.uniform("positionTex", 2);
-
-	glActiveTexture(GL_TEXTURE3);
-	depth->Bind();
 	screenSpaceFogShader.uniform("depthTex", 3);
+
 	quad->draw();
 
-	position->Unbind();
-	depth->Unbind();
-	normal->Unbind();
-	diffuse->Unbind();
+	fbo->unbindAllTextures();
 
 	screenSpaceFogShader.disable();
 }
 
+/* *********************************************************************************************************
+Render Effects
+********************************************************************************************************* */
 void renderNoise() {
 	noiseFunctionShader.enable();
 	noiseFunctionShader.uniform("time", (float)timer.currentTime);
@@ -539,33 +594,37 @@ void display() {
 	updateTweakBar();
 
 	switch (current_Shader) {
-	case STANDARD_SHADER:
-		sponzaStandardScene();
-		break;
+		case STANDARD_SHADER:
+			sponzaStandardScene();
+			break;
 
-	case DEBUG_SHADER:
-		sponzaDebugScene();
-		break;
+		case SHADOW_MAP_SHADER:
+			sponzaShadowMap();
+			break;
 
-	case FOG_SHADER:
-		sponzaFogScene();
-		break;
+		case DEBUG_SHADER:
+			sponzaDebugScene();
+			break;
 
-	case EXP_FOG_SHADER:
-		sponzaFogExponentialScene();
-		break;
+		case FOG_SHADER:
+			sponzaFogScene();
+			break;
 
-	case FOG_SCREENSPACE_SHADER:
-		sponzaFogScreenspaceScene();
-		break;
+		case EXP_FOG_SHADER:
+			sponzaFogExponentialScene();
+			break;
 
-	case FOG_SCREENSPACE_NOISE_SHADER:
-		sponzaFogScreenspaceSceneNoise();
-		break;
+		case FOG_SCREENSPACE_SHADER:
+			sponzaFogScreenspaceScene();
+			break;
 
-	case NOISE_SHADER:
-		renderNoise();
-		break;
+		case FOG_SCREENSPACE_NOISE_SHADER:
+			sponzaFogScreenspaceSceneNoise();
+			break;
+
+		case NOISE_SHADER:
+			renderNoise();
+			break;
 	}
 
 	TwDraw(); //Draw Tweak-Bar
@@ -604,7 +663,6 @@ int main(int argc, char** argv) {
 
 	init();
 	initFBO();
-	initNoiseTex();
 
 	glutMainLoop();
 

@@ -43,7 +43,7 @@ struct Vertex {
 
 };
 
-struct Texture {
+struct TextureMesh {
 	unsigned int id;
 	string type;
 	aiString path;
@@ -54,7 +54,7 @@ public:
 	/*  Mesh Data  */
 	vector<Vertex> vertices;
 	vector<unsigned int> indices;
-	vector<Texture> textures;
+	vector<TextureMesh> textures;
 	unsigned int VAO;
 
 	/*  Functions  */
@@ -62,7 +62,7 @@ public:
 	Mesh() {
 	}
 
-	Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures)
+	Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<TextureMesh> textures)
 	{
 		this->vertices = vertices;
 		this->indices = indices;

@@ -124,6 +124,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+    <ClInclude Include="FBO.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="helper.h" />
     <ClInclude Include="loadPNG.h" />
     <ClInclude Include="mathConstants.h" />
@@ -133,9 +139,17 @@
     <ClInclude Include="SimpleModels.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="Texture.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="times.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shader\depthOnly.fs.glsl" />
+    <None Include="shader\depthOnly.vs.glsl" />
     <None Include="shader\exponentialHalfspaceFogTextured.fs.glsl" />
     <None Include="shader\exponentialHalfspaceFogTextured.vs.glsl" />
     <None Include="shader\gbuffer.fs.glsl" />
@@ -162,6 +176,8 @@
     <None Include="shader\standardMiniColorFBO.vs.glsl" />
     <None Include="shader\standardMiniDepthFBO.fs.glsl" />
     <None Include="shader\standardMiniDepthFBO.vs.glsl" />
+    <None Include="shadowMap.fs.glsl" />
+    <None Include="shadowMap.vs.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

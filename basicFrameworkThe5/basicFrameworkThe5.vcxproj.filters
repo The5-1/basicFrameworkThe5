@@ -9,10 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="Notes">
       <UniqueIdentifier>{20c04b4e-d200-4eb2-be4d-53c00b0dc31b}</UniqueIdentifier>
     </Filter>
@@ -43,8 +39,14 @@
     <Filter Include="Shader\Skybox">
       <UniqueIdentifier>{3720df3d-2ce3-4043-8573-fc6910997df7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="CameraSystem">
-      <UniqueIdentifier>{4bdee340-faf5-4954-b291-b5f56c0c8a4e}</UniqueIdentifier>
+    <Filter Include="Shader\FBO DepthOnly">
+      <UniqueIdentifier>{0084d037-ac34-4051-bab7-5823812e7c5c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="FBO">
+      <UniqueIdentifier>{f9fa66eb-0f7c-4435-83f6-014c02c827a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\Shadow">
+      <UniqueIdentifier>{35cc229b-7faf-4ed2-a54e-db356e1a92d2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -99,6 +101,12 @@
     </ClInclude>
     <ClInclude Include="Skybox.h">
       <Filter>Skybox</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>FBO</Filter>
+    </ClInclude>
+    <ClInclude Include="FBO.h">
+      <Filter>FBO</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -179,6 +187,18 @@
     </None>
     <None Include="shader\skybox.vs.glsl">
       <Filter>Shader\Skybox</Filter>
+    </None>
+    <None Include="shader\depthOnly.fs.glsl">
+      <Filter>Shader\FBO DepthOnly</Filter>
+    </None>
+    <None Include="shader\depthOnly.vs.glsl">
+      <Filter>Shader\FBO DepthOnly</Filter>
+    </None>
+    <None Include="shadowMap.fs.glsl">
+      <Filter>Shader\Shadow</Filter>
+    </None>
+    <None Include="shadowMap.vs.glsl">
+      <Filter>Shader\Shadow</Filter>
     </None>
   </ItemGroup>
 </Project>

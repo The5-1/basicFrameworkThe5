@@ -214,110 +214,110 @@ static string textFileRead(const char *fileName)
     return fileString;
 }
 
-// Texture
-Tex::Tex(int w, int h, int internal_format, int format, int type) 
-	: w(w), h(h) {
-		glGenTextures(1,&index);
-		cout << "tex id " << index << endl;
-
-		// "Bind" the newly created texture : all future texture functions will modify this texture
-		glBindTexture(GL_TEXTURE_2D,index);
-
-
-		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-		// Give an empty image to OpenGL ( the last "0" )
-		glTexImage2D(GL_TEXTURE_2D, 0, internal_format, w, h, 0, format, type, 0);
-	}
-
-void Tex::Bind() {
-	glBindTexture(GL_TEXTURE_2D, index);
-}
-
-int Tex::Unbind() {
-	glBindTexture(GL_TEXTURE_2D, 0);
-	return index;
-}
-
-GLuint Tex::Index() const { return index; }
-
-
-// Frame Buffer Object
-Fbo::Fbo(const string &name, int w, int h, int attachments) 
-	: name(name), w(w), h(h), next_att(0), depthbuffer(0) {
-		glGenFramebuffers(1, &id);
-	}
-
-void Fbo::Bind() {
-
-	//glBindTexture(GL_TEXTURE_2D, 0); //Just to make sure the texture is not bound
-	gl_check_error("pre bind");
-	glBindFramebuffer(GL_FRAMEBUFFER, id);
-	gl_check_error("in bind");
-	if (depthbuffer == 0)
-		glBindRenderbuffer(GL_RENDERBUFFER, alterante_depthbuffer_id);
-	gl_check_error("in bind");
-	if (next_att != 0)
-		glDrawBuffers(next_att, &attachment_id[0]); //in which buffers of the fbo do we draw
-	else
-		glDrawBuffer(GL_NONE);
-	gl_check_error("post bind");
-
-	//glViewport(0, 0, FBOwidth, FBOheight) //We should change the resoultion to the resolution of our FBO
-}
-
-void Fbo::AddTextureAsColorbuffer(const string &name, const Tex *img) {
-	attachment_name.push_back(name);
-	attachment_texture.push_back(*img);
-	attachment_id.push_back(GL_COLOR_ATTACHMENT0 + next_att);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, attachment_id[next_att], GL_TEXTURE_2D, img->Index(), 0);
-	++next_att;
-	gl_check_error(("Error binding texture " + name + " to fbo " + Fbo::name).c_str());
-}
-
-void Fbo::AddTextureAsDepthbuffer(Tex *img) {
-	//Depth-Buffer can also be saved as non Textures: https://www.youtube.com/watch?v=21UsMuFTN0k
-	depthbuffer = img;
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, img->Index(), 0);
-}
-
-void Fbo::Unbind() { //Switch back to default framebuffer
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-}
-
-void Fbo::Check() {
-	int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if (status != GL_FRAMEBUFFER_COMPLETE)
-		cerr << "Framebuffer " << name << " is not complete: " << status << endl;
-}
-
-void Fbo::FillFBO(int width, int height, Tex* diffuse, const string &diffName, Tex* normal, const string &normName, Tex* position, const string &posName, Tex* depth)
-{
-	//FixMe: Why does this crash the program
-
-	//glEnable(GL_TEXTURE_2D);
-	//gl_check_error("fbo");
-	//diffuse = new Tex(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("diffuse tex");
-	//normal = new Tex(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("normal tex");
-	//position = new Tex(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("position tex");
-	//depth = new Tex(width, height, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT);
-	//gl_check_error("depth tex");
-
-	//FixMe: This alone works
-	Bind();
-	AddTextureAsColorbuffer(diffName, diffuse);
-	AddTextureAsColorbuffer(normName, normal);
-	AddTextureAsColorbuffer(posName, position);
-	AddTextureAsDepthbuffer(depth);
-	Check();
-	Unbind();
-	gl_check_error("post fbo setup");
-}
+//// Texture
+//Tex::Tex(int w, int h, int internal_format, int format, int type) 
+//	: w(w), h(h) {
+//		glGenTextures(1,&index);
+//		cout << "tex id " << index << endl;
+//
+//		// "Bind" the newly created texture : all future texture functions will modify this texture
+//		glBindTexture(GL_TEXTURE_2D,index);
+//
+//
+//		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+//		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+//		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+//
+//		// Give an empty image to OpenGL ( the last "0" )
+//		glTexImage2D(GL_TEXTURE_2D, 0, internal_format, w, h, 0, format, type, 0);
+//	}
+//
+//void Tex::Bind() {
+//	glBindTexture(GL_TEXTURE_2D, index);
+//}
+//
+//int Tex::Unbind() {
+//	glBindTexture(GL_TEXTURE_2D, 0);
+//	return index;
+//}
+//
+//GLuint Tex::Index() const { return index; }
+//
+//
+//// Frame Buffer Object
+//Fbo::Fbo(const string &name, int w, int h, int attachments) 
+//	: name(name), w(w), h(h), next_att(0), depthbuffer(0) {
+//		glGenFramebuffers(1, &id);
+//	}
+//
+//void Fbo::Bind() {
+//
+//	//glBindTexture(GL_TEXTURE_2D, 0); //Just to make sure the texture is not bound
+//	gl_check_error("pre bind");
+//	glBindFramebuffer(GL_FRAMEBUFFER, id);
+//	gl_check_error("in bind");
+//	if (depthbuffer == 0)
+//		glBindRenderbuffer(GL_RENDERBUFFER, alterante_depthbuffer_id);
+//	gl_check_error("in bind");
+//	if (next_att != 0)
+//		glDrawBuffers(next_att, &attachment_id[0]); //in which buffers of the fbo do we draw
+//	else
+//		glDrawBuffer(GL_NONE);
+//	gl_check_error("post bind");
+//
+//	//glViewport(0, 0, FBOwidth, FBOheight) //We should change the resoultion to the resolution of our FBO
+//}
+//
+//void Fbo::AddTextureAsColorbuffer(const string &name, const Tex *img) {
+//	attachment_name.push_back(name);
+//	attachment_texture.push_back(*img);
+//	attachment_id.push_back(GL_COLOR_ATTACHMENT0 + next_att);
+//	glFramebufferTexture2D(GL_FRAMEBUFFER, attachment_id[next_att], GL_TEXTURE_2D, img->Index(), 0);
+//	++next_att;
+//	gl_check_error(("Error binding texture " + name + " to fbo " + Fbo::name).c_str());
+//}
+//
+//void Fbo::AddTextureAsDepthbuffer(Tex *img) {
+//	//Depth-Buffer can also be saved as non Textures: https://www.youtube.com/watch?v=21UsMuFTN0k
+//	depthbuffer = img;
+//	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, img->Index(), 0);
+//}
+//
+//void Fbo::Unbind() { //Switch back to default framebuffer
+//	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+//}
+//
+//void Fbo::Check() {
+//	int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+//	if (status != GL_FRAMEBUFFER_COMPLETE)
+//		cerr << "Framebuffer " << name << " is not complete: " << status << endl;
+//}
+//
+//void Fbo::FillFBO(int width, int height, Tex* diffuse, const string &diffName, Tex* normal, const string &normName, Tex* position, const string &posName, Tex* depth)
+//{
+//	//FixMe: Why does this crash the program
+//
+//	//glEnable(GL_TEXTURE_2D);
+//	//gl_check_error("fbo");
+//	//diffuse = new Tex(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("diffuse tex");
+//	//normal = new Tex(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("normal tex");
+//	//position = new Tex(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("position tex");
+//	//depth = new Tex(width, height, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT);
+//	//gl_check_error("depth tex");
+//
+//	//FixMe: This alone works
+//	Bind();
+//	AddTextureAsColorbuffer(diffName, diffuse);
+//	AddTextureAsColorbuffer(normName, normal);
+//	AddTextureAsColorbuffer(posName, position);
+//	AddTextureAsDepthbuffer(depth);
+//	Check();
+//	Unbind();
+//	gl_check_error("post fbo setup");
+//}
 
 // screen space quad
 void simpleQuad::upload() {

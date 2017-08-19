@@ -6,9 +6,16 @@
 #include "Texture.h"
 
 #include <vector>
+#include <map>
 #include <string>
 
-enum FBO_Type { FBO_EMPTY, FBO_GBUFFER, FBO_DEPTH};
+enum FBO_Type {
+	FBO_EMPTY,
+	FBO_RGB_DEPTH_16BIT,
+	FBO_GBUFFER_16BIT,
+	FBO_GBUFFER_32BIT, 
+	FBO_DEPTH_16BIT,
+	FBO_DEPTH_32BIT};
 
 class FBO {
 public:
@@ -16,6 +23,9 @@ public:
 	GLuint id;
 	vector<string> attachment_name;
 	vector<Texture> attachment_texture;
+	//ToDo: Textures as a pair of name and index
+	//std::map<string,Texture> attachment_texture;
+
 	vector<GLuint> attachment_id;
 	Texture *depthbuffer;
 	enum { alterante_depthbuffer_id = 0 };
@@ -31,7 +41,7 @@ public:
 			case FBO_EMPTY:
 				break;
 
-			case FBO_GBUFFER: {
+			case FBO_GBUFFER_32BIT: {
 				Texture *diffuse = 0, *normal = 0, *position = 0, *depth = 0;
 				//FixMe: Why does this crash the program
 
@@ -54,7 +64,64 @@ public:
 				gl_check_error("post fbo setup");
 				break;
 			}
-			case FBO_DEPTH: {
+			case FBO_GBUFFER_16BIT: {
+				Texture *diffuse = 0, *normal = 0, *position = 0, *depth = 0;
+				//FixMe: Why does this crash the program
+
+				glEnable(GL_TEXTURE_2D);
+				gl_check_error("fbo");
+				diffuse = new Texture(w, h, GL_RGBA16F, GL_RGBA, GL_FLOAT);	gl_check_error("diffuse tex");
+				normal = new Texture(w, h, GL_RGBA16F, GL_RGBA, GL_FLOAT);	gl_check_error("normal tex");
+				position = new Texture(w, h, GL_RGBA16F, GL_RGBA, GL_FLOAT);	gl_check_error("position tex");
+				depth = new Texture(w, h, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_FLOAT);
+				gl_check_error("depth tex");
+
+				//FixMe: This alone works
+				this->Bind();
+				this->AddTextureAsColorbuffer("diffuse", diffuse);
+				this->AddTextureAsColorbuffer("normal", normal);
+				this->AddTextureAsColorbuffer("position", position);
+				this->AddTextureAsDepthbuffer(depth);
+				this->Check();
+				this->Unbind();
+				gl_check_error("post fbo setup");
+				break;
+			}
+			case FBO_RGB_DEPTH_16BIT: {
+				Texture *rgb = 0, *depth = 0;
+				//FixMe: Why does this crash the program
+
+				glEnable(GL_TEXTURE_2D);
+				gl_check_error("fbo");
+				rgb = new Texture(w, h, GL_RGB16F, GL_RGB, GL_FLOAT);	gl_check_error("rgb tex");
+				depth = new Texture(w, h, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_FLOAT);
+				gl_check_error("depth tex");
+
+				//FixMe: This alone works
+				this->Bind();
+				this->AddTextureAsColorbuffer("rgb", rgb);
+				this->AddTextureAsDepthbuffer(depth);
+				this->Check();
+				this->Unbind();
+				gl_check_error("post fbo setup");
+				break;
+			}
+			case FBO_DEPTH_16BIT: {
+				// We won't use a color texture for a only depth FBO
+				Texture *depth = 0;
+				glEnable(GL_TEXTURE_2D);
+				depth = new Texture(w, h, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_FLOAT);
+				this->Bind();
+				glDrawBuffer(GL_NONE);
+				glReadBuffer(GL_NONE);
+				this->AddTextureAsDepthbuffer(depth);
+				this->Check();
+				this->Unbind();
+				gl_check_error("post fbo setup");
+				break;
+			}
+
+			case FBO_DEPTH_32BIT: {
 				// We won't use a color texture for a only depth FBO
 				Texture *depth = 0;
 				glEnable(GL_TEXTURE_2D);
@@ -118,7 +185,6 @@ public:
 
 	void fillFBO(int width, int height)
 	{
-
 		Texture *diffuse = 0, *normal = 0, *position = 0, *depth = 0;
 		//FixMe: Why does this crash the program
 
@@ -141,6 +207,7 @@ public:
 		gl_check_error("post fbo setup");
 	}
 
+	//Bind all Textures
 	void bindAllTextures() {
 		for (int i = 0; i < attachment_texture.size(); i++) {
 			glActiveTexture(GL_TEXTURE0 + i);
@@ -157,6 +224,36 @@ public:
 		}
 
 		glActiveTexture(GL_TEXTURE0 + attachment_texture.size());
+		depthbuffer->Unbind();
+	}
+
+	//Bind single Texture
+	void bindTexture(unsigned int textureNumber, GLuint activeTexture = 0) {
+		if (textureNumber >= attachment_texture.size()) {
+			std::cout << "ERROR bindTexture: Index out of bound." << std::endl;
+			return;
+		}
+		glActiveTexture(GL_TEXTURE0 + activeTexture);
+		attachment_texture[textureNumber].Bind();
+	}
+
+	void unbindTexture(unsigned int textureNumber, GLuint activeTexture = 0) {
+		if (textureNumber >= attachment_texture.size()) {
+			std::cout << "ERROR bindTexture: Index out of bound." << std::endl;
+			return;
+		}
+		glActiveTexture(GL_TEXTURE0 + activeTexture);
+		attachment_texture[textureNumber].Unbind();
+	}
+
+	//Bind depth
+	void bindDepth(GLuint activeTexture = 0) {
+		glActiveTexture(GL_TEXTURE0 + activeTexture);
+		depthbuffer->Bind();
+	}
+
+	void unbindDepth(GLuint activeTexture = 0) {
+		glActiveTexture(GL_TEXTURE0 + activeTexture);
 		depthbuffer->Unbind();
 	}
 

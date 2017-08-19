@@ -16,8 +16,27 @@
 //Time
 Timer timer;
 
+//Light
+struct Light {
+public:
+	glm::vec3 lightPosition;
+	glm::vec3 lightTarget;
+	glm::vec3 lightUp;
+public:
+	Light(glm::vec3 _lightPosition, glm::vec3 _lightTarget, glm::vec3 _lightUp) {
+		lightPosition = _lightPosition;
+		lightTarget = _lightTarget;
+		lightUp = _lightUp;
+	}
+};
+
 //Resolution (has to be changed in helper.h too)
 glm::vec2 resolution = glm::vec2(1024, 768);
+
+//Light
+glm::vec3 defaultlightpos = glm::vec3(18.665f, 73.297f, -6.238f);
+glm::vec3 defaultlightdir = glm::vec3(-0.194856f, -0.669356f, 0.0891604f);
+Light light(defaultlightpos, defaultlightpos + defaultlightdir, glm::vec3(0.0f, 1.0f, 0.0f));
 
 //Externals
 cameraSystem cam(1.0f, 1.0f, glm::vec3(20.95f, 20.95f, -0.6f));
@@ -65,6 +84,10 @@ Shader noiseFunctionShader;
 
 //Shadow
 Shader shadowMapShader;
+int SHADOW_WIDTH = 1024;
+int SHADOW_HEIGHT = 1024;
+Shader msm_depthShader;
+Shader msm_shadowShader;
 
 //Debug-Shader
 Shader quadScreenSizedShader;
@@ -77,23 +100,22 @@ Model sponzaModel;
 
 //Frame buffer object
 FBO *fbo = 0;
-Texture *diffuse = 0, *normal = 0, *position = 0, *depth = 0;
-
-//Frame buffer object with only depth
-FBO *fbo2Depth = 0;
-Texture *depth2 = 0;
+FBO *fboDepthShadowMap = 0;
+FBO *fboMomentsShadowMap = 0;
 
 //Tweakbar
 TwBar *tweakBar;
 enum SHADER_TYPE { STANDARD_SHADER,
 				SHADOW_MAP_SHADER,
+				MOMENTS_SHADOW_MAP_SHADER,
 				DEBUG_SHADER, 
 				FOG_SHADER, 
 				EXP_FOG_SHADER, 
 				FOG_SCREENSPACE_SHADER, 
 				FOG_SCREENSPACE_NOISE_SHADER, 
 				NOISE_SHADER};
-SHADER_TYPE current_Shader = STANDARD_SHADER;
+
+SHADER_TYPE current_Shader = MOMENTS_SHADOW_MAP_SHADER;
 
 //Fog-Variables
 float rho_Fog = 0.24;
@@ -114,6 +136,9 @@ int fogType_ScreenSpace = 0;
 float density_Noise = 8.0f;
 int type_Noise = 0;
 
+//Helper-Tweakbar-Button
+bool helperBoolButton = false;
+
 void setupTweakBar() {
 	// Tweakbar
 	TwInit(TW_OPENGL_CORE, NULL);
@@ -122,6 +147,7 @@ void setupTweakBar() {
 	// Array of drop down items
 	TwEnumVal Shader_array[] = { { STANDARD_SHADER, "Standard" }, 
 									{SHADOW_MAP_SHADER, "Shadow Map" },
+									{MOMENTS_SHADOW_MAP_SHADER , "Variance Shadow Map"},
 									{DEBUG_SHADER, "Debug" },
 									{FOG_SHADER, "Fog" },
 									{EXP_FOG_SHADER, "Exponential fog" },
@@ -130,7 +156,7 @@ void setupTweakBar() {
 									{NOISE_SHADER, "Noise Textures"} };
 
 	// ATB identifier for the array
-	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 8);
+	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 9);
 
 	// Link it to the tweak bar
 	TwAddVarRW(tweakBar, "Shader", ShaderTwType, &current_Shader, NULL);
@@ -156,6 +182,9 @@ void setupTweakBar() {
 	//Noise-Function
 	TwAddVarRW(tweakBar, "density_Noise", TW_TYPE_FLOAT, &density_Noise, " label='Noise density' min=0.0 step=0.001 max=100.0");
 	TwAddVarRW(tweakBar, "type_Noise", TW_TYPE_INT32, &type_Noise, " label='Noise Type' min=0 step=1 max=100");
+
+	//Helper-Tweakbar-Button
+	TwAddVarRW(tweakBar, "helperBoolButton", TW_TYPE_BOOLCPP, &helperBoolButton, " label='Set Light to Cam' ");
 }
 
 void updateTweakBar() {
@@ -178,12 +207,18 @@ void updateTweakBar() {
 	TwDefine("Settings/density_Noise visible=false");
 	TwDefine("Settings/type_Noise visible=false");
 
+	//Helper-Tweakbar-Button
+	TwDefine("Settings/helperBoolButton visible=false");
 	//Only show what we need
 	switch (current_Shader) {
 		case STANDARD_SHADER: 
 			break;
 
 		case SHADOW_MAP_SHADER:
+			TwDefine("Settings/helperBoolButton visible=true");
+			break;
+
+		case MOMENTS_SHADOW_MAP_SHADER:
 			break;
 
 		case DEBUG_SHADER:
@@ -240,13 +275,14 @@ void init() {
 }
 
 void initFBO() {
-	fbo = new FBO("Gbuffer", WIDTH, HEIGHT, FBO_GBUFFER);
+	fbo = new FBO("Gbuffer", WIDTH, HEIGHT, FBO_GBUFFER_32BIT);
 	gl_check_error("fbo 1");
 
-	//Only depth FBO
-	fbo2Depth = new FBO("Depth", WIDTH, HEIGHT, FBO_DEPTH);
-	gl_check_error("post fbo2Depth setup");
+	fboDepthShadowMap = new FBO("DepthShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_DEPTH_16BIT);
+	gl_check_error("post DepthShadowMap");
 
+	fboMomentsShadowMap = new FBO("MomentsShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_RGB_DEPTH_16BIT);
+	gl_check_error("MomentsShadowMap");
 }
 
 void loadShader(bool init) {
@@ -273,6 +309,8 @@ void loadShader(bool init) {
 
 	//Shadow 
 	shadowMapShader = Shader("./shader/shadowMap.vs.glsl", "./shader/shadowMap.fs.glsl");
+	msm_depthShader = Shader("./shader/msm_depth.vs.glsl", "./shader/msm_depth.fs.glsl");
+	msm_shadowShader = Shader("./shader/msm_shadow.vs.glsl", "./shader/msm_shadow.fs.glsl");
 
 	//FBO-Shader
 	depthOnlyShader = Shader("./shader/depthOnly.vs.glsl", "./shader/depthOnly.fs.glsl");
@@ -315,42 +353,171 @@ void sponzaStandardScene(){
 }
 
 void sponzaShadowMap() {
-	fbo2Depth->Bind();
-	{
-		glClear(GL_DEPTH_BUFFER_BIT);
-		glEnable(GL_DEPTH_TEST);
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//Resolution of Shadowmap-Viewport has to be the same as the resolution of the shadow map depth buffer
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	int orig_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, orig_viewport);
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 
-		depthOnlyShader.enable();
-
-		float near_plane = 1.0f, far_plane = 1000.0f;
-		glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-
-		glm::vec3 lightPosition = glm::vec3(55.80f, 55.80f, -0.88f);
-		glm::vec3 lightTarget = glm::vec3(0.58f, -0.38f, 0.0f);
-		glm::vec3 lightUp = glm::vec3(0.0f, 1.0f, 0.0f);
-		glm::mat4 lightView = glm::lookAt(lightPosition, lightTarget, lightUp);
-
-		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
-		depthOnlyShader.uniform("lightSpaceMatrix", lightSpaceMatrix);
-
-		glm::mat4 modelMatrix;
-		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
-		modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
-		depthOnlyShader.uniform("modelMatrix", modelMatrix);
-
-		sponzaModel.Draw(depthOnlyShader); 
-
-		depthOnlyShader.enable();	
+	if (helperBoolButton) {
+		light.lightPosition = glm::vec3(cam.position.x, cam.position.y, cam.position.z);
+		light.lightTarget = light.lightPosition + glm::vec3(cam.viewDir.x, cam.viewDir.y, cam.viewDir.z);
+		light.lightUp = glm::vec3(cam.upDir.x, cam.upDir.y, cam.upDir.z);
 	}
-	fbo2Depth->Unbind();
 
+
+	//Fill FBO
+	fboDepthShadowMap->Bind();
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_CULL_FACE);
+	//glCullFace(GL_FRONT);
+	depthOnlyShader.enable();
+
+	float near_plane = 1.0f, far_plane = 200.0f;
+	glm::mat4 lightProjection = glm::ortho(-80.0f, 80.0f, -80.0f, 80.0f, near_plane, far_plane);
+
+	glm::mat4 lightView = glm::lookAt(light.lightPosition, light.lightTarget, light.lightUp);
+
+	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+	if (helperBoolButton) {
+		helperBoolButton = false;
+		lightSpaceMatrix = projMatrix * viewMatrix;
+	}
+
+	depthOnlyShader.uniform("lightSpaceMatrix", lightSpaceMatrix);
+
+	glm::mat4 modelMatrix;
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
+	modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+	depthOnlyShader.uniform("modelMatrix", modelMatrix);
+
+	sponzaModel.Draw(depthOnlyShader); 
+
+	depthOnlyShader.disable();	
+	fboDepthShadowMap->Unbind();
+	
+	//Skybox
+	skyboxShader.enable();
+	skyboxShader.uniform("projMatrix", projMatrix);
+	skyboxShader.uniform("viewMatrix", cam.cameraRotation);
+	skybox.Draw(skyboxShader);
+	skyboxShader.disable();
+
+	//Draw Scene with shadows
+	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
+	glCullFace(GL_BACK);
+	shadowMapShader.enable();
+	shadowMapShader.uniform("projection", projMatrix);
+	shadowMapShader.uniform("view", viewMatrix);
+	shadowMapShader.uniform("model", modelMatrix);
+	shadowMapShader.uniform("lightSpaceMatrix", lightSpaceMatrix);
+	fboDepthShadowMap->bindDepth(4);
+	shadowMapShader.uniform("shadowMap", 4);
+	shadowMapShader.uniform("lightPos", light.lightPosition);
+	shadowMapShader.uniform("viewPos", glm::vec3(cam.position.x, cam.position.y, cam.position.z));
+	sponzaModel.Draw(shadowMapShader);
+	shadowMapShader.disable();
+
+	//Show depth for debugging
 	standardMiniDepthFboShader.enable();
-	fbo2Depth->bindAllTextures();
+	fboDepthShadowMap->bindAllTextures();
 	standardMiniDepthFboShader.uniform("tex", 0);
-	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.5f, 0.5f));
+	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
 	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
 	quad->draw();
-	fbo2Depth->unbindAllTextures();
+	fboDepthShadowMap->unbindAllTextures();
+	standardMiniDepthFboShader.disable();
+}
+
+void sponzaMomentsShadowMap(){
+	//Fill FBO
+	fboMomentsShadowMap->Bind();
+
+	int orig_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, orig_viewport);
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+
+	glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_CULL_FACE);
+	//glCullFace(GL_FRONT);
+	msm_depthShader.enable();
+
+	float near_plane = 1.0f, far_plane = 200.0f;
+	glm::mat4 lightProjection = glm::ortho(-80.0f, 80.0f, -80.0f, 80.0f, near_plane, far_plane);
+
+	glm::mat4 lightView = glm::lookAt(light.lightPosition, light.lightTarget, light.lightUp);
+
+	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+	if (helperBoolButton) {
+		helperBoolButton = false;
+		lightSpaceMatrix = projMatrix * viewMatrix;
+	}
+
+	msm_depthShader.uniform("uMatVP_Light", lightSpaceMatrix);
+
+	glm::mat4 modelMatrix;
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
+	modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+	msm_depthShader.uniform("uMatM", modelMatrix);
+
+	sponzaModel.Draw(msm_depthShader);
+
+	msm_depthShader.disable();
+	fboMomentsShadowMap->Unbind();	
+
+	//Draw Shadow
+	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
+
+	//Skybox
+	skyboxShader.enable();
+	skyboxShader.uniform("projMatrix", projMatrix);
+	skyboxShader.uniform("viewMatrix", cam.cameraRotation);
+	skybox.Draw(skyboxShader);
+	skyboxShader.disable();
+
+	//Draw Scene with shadows
+	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
+	glCullFace(GL_BACK);
+	msm_shadowShader.enable();
+	msm_shadowShader.uniform("uMatP", projMatrix);
+	msm_shadowShader.uniform("uMatV", viewMatrix);
+	msm_shadowShader.uniform("uMatM", modelMatrix);
+	msm_shadowShader.uniform("uMatVP_Light", lightSpaceMatrix);
+
+	fboMomentsShadowMap->bindTexture(0, 3);
+	msm_shadowShader.uniform("shadowMap_moments", 3);
+
+	fboMomentsShadowMap->bindDepth(4);
+	msm_shadowShader.uniform("shadowMap_depth", 4);
+
+	msm_shadowShader.uniform("lightPos", light.lightPosition);
+	msm_shadowShader.uniform("viewPos", glm::vec3(cam.position.x, cam.position.y, cam.position.z));
+	sponzaModel.Draw(msm_shadowShader);
+	msm_shadowShader.disable();
+
+	//Debug Textures
+	standardMiniColorFboShader.enable();
+	fboMomentsShadowMap->bindTexture(0);
+	standardMiniColorFboShader.uniform("tex", 0);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	quad->draw();
+	fboMomentsShadowMap->unbindTexture(0);
+	standardMiniColorFboShader.disable();
+
+	standardMiniDepthFboShader.enable();
+	fboMomentsShadowMap->bindDepth();
+	standardMiniDepthFboShader.uniform("tex", 0);
+	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.7f, 0.4f));
+	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 0.7f));
+	quad->draw();
+	fboMomentsShadowMap->unbindDepth();
 	standardMiniDepthFboShader.disable();
 }
 
@@ -379,46 +546,42 @@ void sponzaDebugScene() {
 
 	//Diffuse
 	standardMiniColorFboShader.enable();
-	glActiveTexture(GL_TEXTURE0);
-	diffuse->Bind();
+	fbo->bindTexture(0);
 	standardMiniColorFboShader.uniform("tex", 0);
 	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.0f, 0.5f));
 	standardMiniColorFboShader.uniform("upRight", glm::vec2(0.5f, 1.0f));
 	quad->draw();
-	diffuse->Unbind();
+	fbo->unbindTexture(0);
 	standardMiniColorFboShader.disable();
 
 	//Depth
 	standardMiniDepthFboShader.enable();
-	glActiveTexture(GL_TEXTURE0);
-	depth->Bind();
+	fbo->bindDepth();
 	standardMiniDepthFboShader.uniform("tex", 0);
 	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.5f, 0.5f));
 	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
 	quad->draw();
-	depth->Unbind();
+	fbo->unbindDepth();
 	standardMiniDepthFboShader.disable();
 
 	//Normal
 	standardMiniColorFboShader.enable();
-	glActiveTexture(GL_TEXTURE0);
-	normal->Bind();
+	fbo->bindTexture(1);
 	standardMiniColorFboShader.uniform("tex", 0);
 	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.0f, 0.0f));
 	standardMiniColorFboShader.uniform("upRight", glm::vec2(0.5f, 0.5f));
 	quad->draw();
-	normal->Unbind();
+	fbo->unbindTexture(1);
 	standardMiniColorFboShader.disable();
 
 	//Position
 	standardMiniColorFboShader.enable();
-	glActiveTexture(GL_TEXTURE0);
-	position->Bind();
+	fbo->bindTexture(2);
 	standardMiniColorFboShader.uniform("tex", 0);
 	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.5f, 0.0f));
 	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 0.5f));
 	quad->draw();
-	position->Unbind();
+	fbo->unbindTexture(2);
 	standardMiniColorFboShader.disable();
 }
 
@@ -508,17 +671,15 @@ void sponzaFogScreenspaceSceneNoise() {
 	screenSpaceNoiseFogShader.uniform("resolution", resolution);
 	screenSpaceNoiseFogShader.uniform("density", density_Noise);
 
-	glActiveTexture(GL_TEXTURE0);
-	diffuse->Bind();
+	fbo->bindTexture(0, 0);
 	screenSpaceNoiseFogShader.uniform("diffuseTex", 0);
 
-	glActiveTexture(GL_TEXTURE1);
-	position->Bind();
+	fbo->bindTexture(2, 1);
 	screenSpaceNoiseFogShader.uniform("positionTex", 1);
 
 	quadMesh.Draw(screenSpaceNoiseFogShader);
-	diffuse->Unbind();
-	position->Unbind();
+	fbo->unbindTexture(0, 0);
+	fbo->unbindTexture(2, 1);
 
 	screenSpaceNoiseFogShader.disable();
 }
@@ -589,6 +750,7 @@ void display() {
 	//OpenGL Clears
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
 	glClearColor(0.2f, 0.2f, 0.2f, 1);
 
 	updateTweakBar();
@@ -600,6 +762,10 @@ void display() {
 
 		case SHADOW_MAP_SHADER:
 			sponzaShadowMap();
+			break;
+
+		case MOMENTS_SHADOW_MAP_SHADER:
+			sponzaMomentsShadowMap();
 			break;
 
 		case DEBUG_SHADER:

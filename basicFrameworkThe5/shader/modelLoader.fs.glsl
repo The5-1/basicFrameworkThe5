@@ -8,13 +8,6 @@ uniform sampler2D texture_specular;
 uniform sampler2D texture_normal;
 uniform sampler2D texture_height;
 
-/*
-out vec4 albedo;
-out vec4 specular;
-out vec4 normal;
-out vec4 height;
-*/
-
 void main()
 { 
 

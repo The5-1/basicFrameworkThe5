@@ -56,7 +56,7 @@ void keyboard(unsigned char key, int x, int y) {
 		const glm::vec4& p = cam.position;
 		std::cout << "cam-dir: " << d.x << ", " << d.y << ", " << d.z << std::endl <<
 		             "cam-up:  " << u.x << ", " << u.y << ", " << u.z << std::endl <<
-					 "cam-pos: " << p.y << ", " << p.y << ", " << p.z << std::endl;
+					 "cam-pos: " << p.x << ", " << p.y << ", " << p.z << std::endl;
 		break;
 	}
 	glutPostRedisplay();

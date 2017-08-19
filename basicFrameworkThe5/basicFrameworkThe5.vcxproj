@@ -160,6 +160,8 @@
     <None Include="shader\modelLoader.vs.glsl" />
     <None Include="shader\modelLoaderGbuffer.fs.glsl" />
     <None Include="shader\modelLoaderGbuffer.vs.glsl" />
+    <None Include="shader\msm_depth.fs.glsl" />
+    <None Include="shader\msm_depth.vs.glsl" />
     <None Include="shader\noiseFunction.fs.glsl" />
     <None Include="shader\noiseFunction.vs.glsl" />
     <None Include="shader\quadScreenSized.fs.glsl" />
@@ -168,6 +170,8 @@
     <None Include="shader\screenSpaceFog.vs.glsl" />
     <None Include="shader\screenSpaceNoiseFog.fs.glsl" />
     <None Include="shader\screenSpaceNoiseFog.vs.glsl" />
+    <None Include="shader\shadowMap.fs.glsl" />
+    <None Include="shader\shadowMap.vs.glsl" />
     <None Include="shader\skybox.fs.glsl" />
     <None Include="shader\skybox.vs.glsl" />
     <None Include="shader\standard.fs.glsl" />
@@ -176,8 +180,6 @@
     <None Include="shader\standardMiniColorFBO.vs.glsl" />
     <None Include="shader\standardMiniDepthFBO.fs.glsl" />
     <None Include="shader\standardMiniDepthFBO.vs.glsl" />
-    <None Include="shadowMap.fs.glsl" />
-    <None Include="shadowMap.vs.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

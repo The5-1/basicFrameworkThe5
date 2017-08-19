@@ -194,10 +194,16 @@
     <None Include="shader\depthOnly.vs.glsl">
       <Filter>Shader\FBO DepthOnly</Filter>
     </None>
-    <None Include="shadowMap.fs.glsl">
+    <None Include="shader\shadowMap.fs.glsl">
       <Filter>Shader\Shadow</Filter>
     </None>
-    <None Include="shadowMap.vs.glsl">
+    <None Include="shader\shadowMap.vs.glsl">
+      <Filter>Shader\Shadow</Filter>
+    </None>
+    <None Include="shader\msm_depth.fs.glsl">
+      <Filter>Shader\Shadow</Filter>
+    </None>
+    <None Include="shader\msm_depth.vs.glsl">
       <Filter>Shader\Shadow</Filter>
     </None>
   </ItemGroup>

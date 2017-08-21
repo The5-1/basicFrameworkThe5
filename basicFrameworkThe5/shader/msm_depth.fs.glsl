@@ -2,6 +2,8 @@
 
 in vec3 vNormalMVP;
 
+uniform bool derivative;
+
 layout(location = 0) out vec3 outColor;
 
 void main()
@@ -13,10 +15,13 @@ void main()
 	float moment4 = moment2*moment2; //moment2 is stored in B
 	
 	
+//one ove the VSM implementations stores this here, not sure if correct. Do here or after filtering?
+if(derivative){
 	//derivates for bias to prevent shadow-acne
 	float dx = dFdx(moment1);
 	float dy = dFdy(moment1);
 	moment2 += 0.25*(dx*dx+dy*dy);
+}
 	
 	outColor = vec3(moment2, moment3, moment4);
 }  

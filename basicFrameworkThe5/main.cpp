@@ -13,8 +13,13 @@
 #include "FBO.h"
 #include "Texture.h"
 
+#include "glm/gtx/string_cast.hpp"
+
 //Time
 Timer timer;
+int frame;
+long timeCounter, timebase;
+char timeString[50];
 
 //Light
 struct Light {
@@ -88,6 +93,7 @@ int SHADOW_WIDTH = 1024;
 int SHADOW_HEIGHT = 1024;
 Shader msm_depthShader;
 Shader msm_shadowShader;
+Shader variance_shadowShader;
 
 //Debug-Shader
 Shader quadScreenSizedShader;
@@ -107,15 +113,20 @@ FBO *fboMomentsShadowMap = 0;
 TwBar *tweakBar;
 enum SHADER_TYPE { STANDARD_SHADER,
 				SHADOW_MAP_SHADER,
+				VARIANCE_SHADOW_MAP_SHADER,
 				MOMENTS_SHADOW_MAP_SHADER,
 				DEBUG_SHADER, 
 				FOG_SHADER, 
 				EXP_FOG_SHADER, 
 				FOG_SCREENSPACE_SHADER, 
 				FOG_SCREENSPACE_NOISE_SHADER, 
-				NOISE_SHADER};
+				NOISE_SHADER,
+				EMPTY_SHADER};
 
 SHADER_TYPE current_Shader = MOMENTS_SHADOW_MAP_SHADER;
+
+//Shadow
+float alpha_MomentShadow = 0.007f;
 
 //Fog-Variables
 float rho_Fog = 0.24;
@@ -147,16 +158,18 @@ void setupTweakBar() {
 	// Array of drop down items
 	TwEnumVal Shader_array[] = { { STANDARD_SHADER, "Standard" }, 
 									{SHADOW_MAP_SHADER, "Shadow Map" },
-									{MOMENTS_SHADOW_MAP_SHADER , "Variance Shadow Map"},
+									{VARIANCE_SHADOW_MAP_SHADER , "Variance Shadow Map" },
+									{MOMENTS_SHADOW_MAP_SHADER , "Moments Shadow Map"},
 									{DEBUG_SHADER, "Debug" },
 									{FOG_SHADER, "Fog" },
 									{EXP_FOG_SHADER, "Exponential fog" },
 									{FOG_SCREENSPACE_SHADER, "Screenspace Fog"}, 
 									{FOG_SCREENSPACE_NOISE_SHADER, "Screenspace Noise Fog" },
-									{NOISE_SHADER, "Noise Textures"} };
+									{NOISE_SHADER, "Noise Textures"}, 
+									{EMPTY_SHADER, "Empty"} };
 
 	// ATB identifier for the array
-	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 9);
+	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 11);
 
 	// Link it to the tweak bar
 	TwAddVarRW(tweakBar, "Shader", ShaderTwType, &current_Shader, NULL);
@@ -183,6 +196,9 @@ void setupTweakBar() {
 	TwAddVarRW(tweakBar, "density_Noise", TW_TYPE_FLOAT, &density_Noise, " label='Noise density' min=0.0 step=0.001 max=100.0");
 	TwAddVarRW(tweakBar, "type_Noise", TW_TYPE_INT32, &type_Noise, " label='Noise Type' min=0 step=1 max=100");
 
+	//Shadow
+	TwAddVarRW(tweakBar, "alpha_MomentShadow", TW_TYPE_FLOAT, &alpha_MomentShadow, " label='Bias alpha' min=0.0 step=0.00001 max=1.0");
+	
 	//Helper-Tweakbar-Button
 	TwAddVarRW(tweakBar, "helperBoolButton", TW_TYPE_BOOLCPP, &helperBoolButton, " label='Set Light to Cam' ");
 }
@@ -207,8 +223,13 @@ void updateTweakBar() {
 	TwDefine("Settings/density_Noise visible=false");
 	TwDefine("Settings/type_Noise visible=false");
 
+	//Shadow
+	TwDefine("Settings/alpha_MomentShadow visible=false");
+	
 	//Helper-Tweakbar-Button
 	TwDefine("Settings/helperBoolButton visible=false");
+
+
 	//Only show what we need
 	switch (current_Shader) {
 		case STANDARD_SHADER: 
@@ -217,8 +238,14 @@ void updateTweakBar() {
 		case SHADOW_MAP_SHADER:
 			TwDefine("Settings/helperBoolButton visible=true");
 			break;
+		
+		case VARIANCE_SHADOW_MAP_SHADER:
+			TwDefine("Settings/helperBoolButton visible=true");
+			break;
 
 		case MOMENTS_SHADOW_MAP_SHADER:
+			TwDefine("Settings/helperBoolButton visible=true");
+			TwDefine("Settings/alpha_MomentShadow visible=true");
 			break;
 
 		case DEBUG_SHADER:
@@ -281,7 +308,7 @@ void initFBO() {
 	fboDepthShadowMap = new FBO("DepthShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_DEPTH_16BIT);
 	gl_check_error("post DepthShadowMap");
 
-	fboMomentsShadowMap = new FBO("MomentsShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_RGB_DEPTH_16BIT);
+	fboMomentsShadowMap = new FBO("MomentsShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_RGB_DEPTH_32BIT);
 	gl_check_error("MomentsShadowMap");
 }
 
@@ -311,13 +338,14 @@ void loadShader(bool init) {
 	shadowMapShader = Shader("./shader/shadowMap.vs.glsl", "./shader/shadowMap.fs.glsl");
 	msm_depthShader = Shader("./shader/msm_depth.vs.glsl", "./shader/msm_depth.fs.glsl");
 	msm_shadowShader = Shader("./shader/msm_shadow.vs.glsl", "./shader/msm_shadow.fs.glsl");
+	variance_shadowShader = Shader("./shader/variance_shadow.vs.glsl", "./shader/variance_shadow.fs.glsl");
 
 	//FBO-Shader
 	depthOnlyShader = Shader("./shader/depthOnly.vs.glsl", "./shader/depthOnly.fs.glsl");
 }
 
 /* *********************************************************************************************************
-Sponza Scenes
+Scenes: Sponza
 ********************************************************************************************************* */
 void sponzaStandardScene(){
 	skyboxShader.enable();
@@ -325,6 +353,9 @@ void sponzaStandardScene(){
 	skyboxShader.uniform("viewMatrix", cam.cameraRotation);
 	skybox.Draw(skyboxShader);
 	skyboxShader.disable();
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 
 	glm::mat4 modelMatrix;
 	modelLoaderShader.enable();
@@ -432,7 +463,7 @@ void sponzaShadowMap() {
 	standardMiniDepthFboShader.disable();
 }
 
-void sponzaMomentsShadowMap(){
+void sponzaVarianceShadowMap() {
 	//Fill FBO
 	fboMomentsShadowMap->Bind();
 
@@ -466,6 +497,103 @@ void sponzaMomentsShadowMap(){
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
 	msm_depthShader.uniform("uMatM", modelMatrix);
 
+	msm_depthShader.uniform("derivative", true);
+
+	sponzaModel.Draw(msm_depthShader);
+
+	msm_depthShader.disable();
+	fboMomentsShadowMap->Unbind();
+
+	//Draw Shadow
+	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
+
+	//Skybox
+	skyboxShader.enable();
+	skyboxShader.uniform("projMatrix", projMatrix);
+	skyboxShader.uniform("viewMatrix", cam.cameraRotation);
+	skybox.Draw(skyboxShader);
+	skyboxShader.disable();
+
+	//Draw Scene with shadows
+	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
+	glCullFace(GL_BACK);
+	variance_shadowShader.enable();
+	variance_shadowShader.uniform("uMatP", projMatrix);
+	variance_shadowShader.uniform("uMatV", viewMatrix);
+	variance_shadowShader.uniform("uMatM", modelMatrix);
+	variance_shadowShader.uniform("uMatVP_Light", lightSpaceMatrix);
+
+	fboMomentsShadowMap->bindTexture(0, 3);
+	variance_shadowShader.uniform("shadowMap_moments", 3);
+
+	fboMomentsShadowMap->bindDepth(4);
+	variance_shadowShader.uniform("shadowMap_depth", 4);
+
+	variance_shadowShader.uniform("lightPos", light.lightPosition);
+	variance_shadowShader.uniform("viewPos", glm::vec3(cam.position.x, cam.position.y, cam.position.z));
+	sponzaModel.Draw(variance_shadowShader);
+	variance_shadowShader.disable();
+
+	//Debug Textures
+	standardMiniColorFboShader.enable();
+	fboMomentsShadowMap->bindTexture(0);
+	standardMiniColorFboShader.uniform("tex", 0);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	quad->draw();
+	fboMomentsShadowMap->unbindTexture(0);
+	standardMiniColorFboShader.disable();
+
+	standardMiniDepthFboShader.enable();
+	fboMomentsShadowMap->bindDepth();
+	standardMiniDepthFboShader.uniform("tex", 0);
+	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.7f, 0.4f));
+	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 0.7f));
+	quad->draw();
+	fboMomentsShadowMap->unbindDepth();
+	standardMiniDepthFboShader.disable();
+}
+
+void sponzaMomentsShadowMap(){
+	//Fill FBO
+	fboMomentsShadowMap->Bind();
+
+	int orig_viewport[4];
+	glGetIntegerv(GL_VIEWPORT, orig_viewport);
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+
+	if (helperBoolButton) {
+		light.lightPosition = glm::vec3(cam.position.x, cam.position.y, cam.position.z);
+		light.lightTarget = light.lightPosition + glm::vec3(cam.viewDir.x, cam.viewDir.y, cam.viewDir.z);
+		light.lightUp = glm::vec3(cam.upDir.x, cam.upDir.y, cam.upDir.z);
+	}
+
+	glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+	//glEnable(GL_CULL_FACE);
+	//glCullFace(GL_FRONT);
+	msm_depthShader.enable();
+
+	float near_plane = 1.0f, far_plane = 200.0f;
+	glm::mat4 lightProjection = glm::ortho(-80.0f, 80.0f, -80.0f, 80.0f, near_plane, far_plane);
+
+	glm::mat4 lightView = glm::lookAt(light.lightPosition, light.lightTarget, light.lightUp);
+
+	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+	if (helperBoolButton) {
+		helperBoolButton = false;
+		lightSpaceMatrix = projMatrix * viewMatrix;
+	}
+
+	msm_depthShader.uniform("uMatVP_Light", lightSpaceMatrix);
+
+	glm::mat4 modelMatrix;
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
+	modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+	msm_depthShader.uniform("uMatM", modelMatrix);
+	msm_depthShader.uniform("derivative", false);
 	sponzaModel.Draw(msm_depthShader);
 
 	msm_depthShader.disable();
@@ -489,6 +617,8 @@ void sponzaMomentsShadowMap(){
 	msm_shadowShader.uniform("uMatV", viewMatrix);
 	msm_shadowShader.uniform("uMatM", modelMatrix);
 	msm_shadowShader.uniform("uMatVP_Light", lightSpaceMatrix);
+	msm_shadowShader.uniform("alpha", alpha_MomentShadow);
+
 
 	fboMomentsShadowMap->bindTexture(0, 3);
 	msm_shadowShader.uniform("shadowMap_moments", 3);
@@ -730,7 +860,7 @@ void sponzaFogScreenspaceScene() {
 }
 
 /* *********************************************************************************************************
-Render Effects
+Scenes: Effects
 ********************************************************************************************************* */
 void renderNoise() {
 	noiseFunctionShader.enable();
@@ -744,8 +874,17 @@ void renderNoise() {
 }
 
 void display() {
-	//Timer update
+	//Timer
 	timer.update();
+	//FPS-Counter
+	frame++;
+	timeCounter = glutGet(GLUT_ELAPSED_TIME);
+	if (timeCounter - timebase > 1000) {
+		sprintf_s(timeString, "FPS:%4.2f", frame*1000.0 / (timeCounter - timebase));
+		timebase = timeCounter;
+		frame = 0;
+		glutSetWindowTitle(timeString);
+	}
 
 	//OpenGL Clears
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -762,6 +901,10 @@ void display() {
 
 		case SHADOW_MAP_SHADER:
 			sponzaShadowMap();
+			break;
+
+		case VARIANCE_SHADOW_MAP_SHADER:
+			sponzaVarianceShadowMap();
 			break;
 
 		case MOMENTS_SHADOW_MAP_SHADER:
@@ -791,6 +934,9 @@ void display() {
 		case NOISE_SHADER:
 			renderNoise();
 			break;
+
+		case EMPTY_SHADER:
+			break;
 	}
 
 	TwDraw(); //Draw Tweak-Bar
@@ -801,6 +947,64 @@ void display() {
 }
 
 int main(int argc, char** argv) {
+	//glm::mat3 test1 = glm::mat3(2, 0, 0, 6, 1, 0, -8, 5, 3);
+	//glm::mat3 test2 = glm::mat3(2,6,-8,0,1,5,0,0,3);
+
+	//std::cout << glm::to_string(test1 * test2) << std::endl;
+	//std::cout << glm::to_string(test2 * test1) << std::endl;
+	//std::cout << " " << std::endl;
+
+	//glm::mat4 Matrix = glm::mat4(18.00000, 22.00000, 54.00000, 42.00000,
+	//	22.00000, 70.00000, 86.00000, 62.00000,
+	//	54.00000, 86.00000, 174.00000, 134.00000,
+	//	42.00000, 62.00000, 134.00000, 106.00000);
+
+	//for (int i = 0; i < 4; i++) {
+	//	std::cout << "Row " << i << ": ";
+	//	for (int j = 0; j < 4; j++) {
+	//		std::cout << Matrix[i][j] << " ";
+	//	}
+	//	std::cout << " " << std::endl;
+	//}
+
+	//std::cout << " " << std::endl;
+
+	//glm::mat4 MatrixL = choleskyDecomposition(Matrix);
+	//for (int i = 0; i < 4; i++) {
+	//	std::cout << "Row " << i << ": ";
+	//	for (int j = 0; j < 4; j++) {
+	//		std::cout << MatrixL[i][j] << " ";
+	//	}
+	//	std::cout << " " << std::endl;
+	//}
+
+	//std::cout << "Solver:" << std::endl;
+	//std::cout << glm::to_string(choleskyEvaluation(MatrixL, glm::transpose(MatrixL), glm::vec4(1.0f,2.0f,3.0f,4.0f))) << std::endl;
+	//std::cout << " " << std::endl;
+
+	//glm::mat4 recalcMatrix = MatrixL * glm::transpose(MatrixL);
+	//for (int i = 0; i < 4; i++) {
+	//	std::cout << "Row " << i << ": ";
+	//	for (int j = 0; j < 4; j++) {
+	//		std::cout << recalcMatrix[i][j] << " ";
+	//	}
+	//	std::cout << " " << std::endl;
+	//}
+	//glm::mat3 m = glm::mat3(4, 12, -16,
+	//						12, 37, -43,
+	//						-16, -43, 98);
+
+	////glm::mat3 m = glm::mat3(25.00000, 15.00000, -5.00000,
+	////	15.00000, 18.00000, 0.00000,
+	////	-5.00000, 0.00000, 11.00000);
+	//glm::mat3 mL = choleskyDecomposition(m);
+	//std::cout << to_string(m) << std::endl;
+	//std::cout << to_string(mL) << std::endl;
+	//std::cout << to_string(mL * glm::transpose(mL)) << std::endl;
+	//std::cout << to_string(glm::transpose(mL) * mL) << std::endl;
+
+
+
 	glutInit(&argc, argv);
 	glutInitWindowSize(WIDTH, HEIGHT);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE | GLUT_STENCIL);

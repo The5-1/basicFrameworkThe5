@@ -32,59 +32,9 @@ void reshape(int w, int h);
 
 void loadShader(bool init);
 
-
-// uniform helper
-//void uniform(int program, const std::string &name, const glm::mat4 &mat);
-//void uniform(int program, const std::string &name, const glm::vec4 &v);
-//void uniform(int program, const std::string &name, const glm::vec3 &v);
-//void uniform(int program, const std::string &name, const glm::vec2 &v);
-//void uniform(int program, const std::string &name, float f);
-//void uniform(int program, const std::string &name, const float* f, const int count);
-//void uniform(int program, const std::string &name, int i);
-//void uniform(int program, const std::string &name, int i, int k);
-//void uniform(int program, const std::string &name, bool b);
-
 bool _gl_check_error(const char* arg, const char *file, int line, const char *function);
 
 static string textFileRead(const char *fileName);
-
-//bool createProgram_VF(const char *VSfile, const char *FSfile, GLuint *handle);
-//bool createProgram_C(const char *CSfile, GLuint *handle);
-
-//// Texture
-//class Tex {
-//	int w,h;
-//	GLuint index;
-//public: 
-//	Tex(int w, int h, int internal_format, int format, int type);
-//	void Bind();
-//	int Unbind();
-//	GLuint Index() const;
-//};
-//
-//// Frame Buffer Object
-//class Fbo {
-//	string name;
-//	GLuint id;
-//	vector<string> attachment_name;
-//	vector<Tex> attachment_texture;
-//	vector<GLuint> attachment_id;
-//	Tex *depthbuffer;
-//	enum { alterante_depthbuffer_id = 0 };
-//	GLuint next_att;
-//	int w, h;
-//	
-//public:
-//	Fbo(const string &name, int w, int h, int attachments);
-//	void Bind();
-//	void AddTextureAsColorbuffer(const string &name, const Tex *img);
-//	void AddTextureAsDepthbuffer(Tex *img);
-//	void Unbind();
-//	void Check();
-//
-//	//Fill FBO
-//	void FillFBO(int width, int height, Tex* diffuse, const string &diffName, Tex* normal, const string &normName, Tex* position, const string &posName, Tex* depth);
-//};
 
 // Screen Space Quad
 class simpleQuad

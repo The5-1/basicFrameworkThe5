@@ -12,6 +12,7 @@
 enum FBO_Type {
 	FBO_EMPTY,
 	FBO_RGB_DEPTH_16BIT,
+	FBO_RGB_DEPTH_32BIT,
 	FBO_GBUFFER_16BIT,
 	FBO_GBUFFER_32BIT, 
 	FBO_DEPTH_16BIT,
@@ -95,6 +96,25 @@ public:
 				gl_check_error("fbo");
 				rgb = new Texture(w, h, GL_RGB16F, GL_RGB, GL_FLOAT);	gl_check_error("rgb tex");
 				depth = new Texture(w, h, GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_FLOAT);
+				gl_check_error("depth tex");
+
+				//FixMe: This alone works
+				this->Bind();
+				this->AddTextureAsColorbuffer("rgb", rgb);
+				this->AddTextureAsDepthbuffer(depth);
+				this->Check();
+				this->Unbind();
+				gl_check_error("post fbo setup");
+				break;
+			}
+			case FBO_RGB_DEPTH_32BIT: {
+				Texture *rgb = 0, *depth = 0;
+				//FixMe: Why does this crash the program
+
+				glEnable(GL_TEXTURE_2D);
+				gl_check_error("fbo");
+				rgb = new Texture(w, h, GL_RGB32F, GL_RGB, GL_FLOAT);	gl_check_error("rgb tex");
+				depth = new Texture(w, h, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT);
 				gl_check_error("depth tex");
 
 				//FixMe: This alone works

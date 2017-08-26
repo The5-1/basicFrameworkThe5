@@ -135,7 +135,6 @@
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Shader.h" />
-    <ClInclude Include="SimpleModels.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="Texture.h">
@@ -147,10 +146,17 @@
     <ClInclude Include="times.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shader\DepthOfField\dof.fs.glsl" />
+    <None Include="shader\DepthOfField\dof.vs.glsl" />
+    <None Include="shader\DepthOfField\phong.fs.glsl" />
+    <None Include="shader\DepthOfField\phong.vs.glsl" />
+    <None Include="shader\DepthOfField\sat.cs.glsl" />
     <None Include="shader\depthOnly.fs.glsl" />
     <None Include="shader\depthOnly.vs.glsl" />
     <None Include="shader\exponentialHalfspaceFogTextured.fs.glsl" />
     <None Include="shader\exponentialHalfspaceFogTextured.vs.glsl" />
+    <None Include="shader\GameOfLife\gameOfLife.cs.glsl" />
+    <None Include="shader\GameOfLife\gameOfLifeRandomNumber.cs.glsl" />
     <None Include="shader\gbuffer.fs.glsl" />
     <None Include="shader\gbuffer.vs.glsl" />
     <None Include="shader\halfspaceFogTextured.fs.glsl" />
@@ -159,6 +165,8 @@
     <None Include="shader\modelLoader.vs.glsl" />
     <None Include="shader\modelLoaderGbuffer.fs.glsl" />
     <None Include="shader\modelLoaderGbuffer.vs.glsl" />
+    <None Include="shader\momentsShadow.fs.glsl" />
+    <None Include="shader\momentsShadow.vs.glsl" />
     <None Include="shader\msm_depth.fs.glsl" />
     <None Include="shader\msm_depth.vs.glsl" />
     <None Include="shader\msm_shadow.fs.glsl" />

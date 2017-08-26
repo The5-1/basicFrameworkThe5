@@ -1,3 +1,9 @@
+/******************************************************************************************************
+ToDo:
+in createProgram:
+-add reload function to geometry shader
+
+*******************************************************************************************************/
 #ifndef SHADER_H
 #define SHADER_H
 #include <glm/glm.hpp>
@@ -11,9 +17,10 @@ class Shader
 {
 public:
 	unsigned int ID;
+
+
 	// constructor generates the shader on the fly
 	// ------------------------------------------------------------------------
-
 	//Default Constructor
 	Shader() {
 	}
@@ -27,6 +34,7 @@ public:
 		std::ifstream vShaderFile;
 		std::ifstream fShaderFile;
 		std::ifstream gShaderFile;
+
 		// ensure ifstream objects can throw exceptions:
 		vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
@@ -62,20 +70,24 @@ public:
 		}
 		const char* vShaderCode = vertexCode.c_str();
 		const char * fShaderCode = fragmentCode.c_str();
+
 		// 2. compile shaders
 		unsigned int vertex, fragment;
 		int success;
 		char infoLog[512];
+
 		// vertex shader
 		vertex = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(vertex, 1, &vShaderCode, NULL);
 		glCompileShader(vertex);
 		checkCompileErrors(vertex, "VERTEX");
+
 		// fragment Shader
 		fragment = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(fragment, 1, &fShaderCode, NULL);
 		glCompileShader(fragment);
 		checkCompileErrors(fragment, "FRAGMENT");
+
 		// if geometry shader is given, compile geometry shader
 		unsigned int geometry;
 		if (geometryPath != nullptr)
@@ -86,6 +98,7 @@ public:
 			glCompileShader(geometry);
 			checkCompileErrors(geometry, "GEOMETRY");
 		}
+
 		// shader Program
 		ID = glCreateProgram();
 		glAttachShader(ID, vertex);
@@ -100,6 +113,37 @@ public:
 		if (geometryPath != nullptr)
 			glDeleteShader(geometry);
 
+	}
+
+	Shader(const char *CSfile) {
+		GLint compiled;
+		char infoLog[4096];
+		int infoLogLength;
+		string code = textFileRead(CSfile);
+
+		const char *CshaderCode = code.c_str();
+
+		//compile vertex shader:
+		GLuint Cshader = glCreateShader(GL_COMPUTE_SHADER);
+		glShaderSource(Cshader, 1, &CshaderCode, 0);
+		glCompileShader(Cshader);
+		glGetShaderiv(Cshader, GL_COMPILE_STATUS, &compiled);
+		if (!compiled) {
+			// Print out the info log
+			glGetShaderInfoLog(Cshader, sizeof(infoLog), &infoLogLength, infoLog);
+			if (infoLogLength > 0)
+			{
+				printf("CompileShader() infoLog %s \n%s\n", CSfile, infoLog);
+				glDeleteShader(Cshader);
+				return;
+			}
+		}
+
+		ID = glCreateProgram();
+		glAttachShader(ID, Cshader);
+		glDeleteShader(Cshader);
+
+		glLinkProgram(ID);
 	}
 
 	
@@ -182,14 +226,14 @@ private:
 	void checkCompileErrors(GLuint shader, std::string type)
 	{
 		GLint success;
-		GLchar infoLog[1024];
+		GLchar infolog[1024];
 		if (type != "PROGRAM")
 		{
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 			if (!success)
 			{
-				glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-				std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+				glGetShaderInfoLog(shader, 1024, NULL, infolog);
+				std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infolog << "\n -- --------------------------------------------------- -- " << std::endl;
 			}
 		}
 		else
@@ -197,10 +241,33 @@ private:
 			glGetProgramiv(shader, GL_LINK_STATUS, &success);
 			if (!success)
 			{
-				glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-				std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+				glGetProgramInfoLog(shader, 1024, NULL, infolog);
+				std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infolog << "\n -- --------------------------------------------------- -- " << std::endl;
 			}
 		}
+	}
+
+	static string textFileRead(const char *fileName)
+	{
+		string fileString;
+		string line;
+
+		ifstream file(fileName, ios_base::in);
+
+		if (file.is_open())
+		{
+			while (!file.eof())
+			{
+				getline(file, line);
+				fileString.append(line);
+				fileString.append("\n");
+			}
+			file.close();
+		}
+		else
+			cout << "Unable to open " << fileName << "\n";
+
+		return fileString;
 	}
 };
 #endif

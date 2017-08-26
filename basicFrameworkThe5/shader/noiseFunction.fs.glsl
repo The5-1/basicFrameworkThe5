@@ -12,9 +12,19 @@ uniform int type;
 
 /* ************************************************************************
 	0. Random Number
+	Returns a random number between [0,1[
 ************************************************************************ */
+
 float random (vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898,78.233)))*43758.5453123);
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+}
+
+float randomWithSeedsSin (vec2 st, float seed1, float seed2, float seed3) {
+    return fract(sin(dot(st.xy, vec2(seed1, seed2))) * seed3);
+}
+
+float randomWithSeedsCos (vec2 st, float seed1, float seed2, float seed3) {
+    return fract(cos(dot(st.xy, vec2(seed1, seed2))) * seed3);
 }
 
 /* ************************************************************************
@@ -161,6 +171,35 @@ vec3 valueNoise(){
 	return vec3(n);
 }
 
+/* ************************************************************************
+	5. Color Noise
+************************************************************************ */
+vec3 simpleColorNoise(){
+	vec2 st = gl_FragCoord.xy/resolution.xy;
+
+	float randomX = round( randomWithSeedsCos(st, 12.9898, 78.233, 43758.5453123));
+	float randomY = round( randomWithSeedsCos(st, 3.4962324, 7.34561, 84638.34566876));
+	float randomZ = round( randomWithSeedsCos(st, 67.02383, 54.34523, 190573.31345345));
+    return vec3(randomX, randomY, randomZ); 
+} 
+
+/* ************************************************************************
+	6. Rescaled Color Noise
+************************************************************************ */
+vec3 rescaleSimpleColorNoise(){
+	vec2 st = gl_FragCoord.xy/resolution.xy;
+
+    st *= 10.0; // Scale the coordinate system by 10
+    vec2 ipos = floor(st);  // get the integer coords
+    vec2 fpos = fract(st);  // get the fractional coords
+
+    // Assign a random value based on the integer coord
+	float randomX = round( randomWithSeedsCos(ipos, 12.9898, 78.233, 43758.5453123));
+	float randomY = round( randomWithSeedsSin(ipos, 3.4962324, 7.34561, 84638.34566876));
+	float randomZ = round( randomWithSeedsSin(ipos, 67.02383, 54.34523, 190573.31345345));
+    return vec3(randomX, randomY, randomZ); 
+} 
+
 /* //////////////////////////////////////////////////////////////////////
 	Main-Function
   ////////////////////////////////////////////////////////////////////// */ 
@@ -181,8 +220,11 @@ void main()
 		case 4: color = truchetDoubleTriangles(); break;
 
 		case 5: color = valueNoise(); break;
-	}
 
+		case 6: color = simpleColorNoise(); break;
+
+		case 7: color = rescaleSimpleColorNoise(); break;
+	}
 
 	out0 = vec4(color, 1.0);
 }

@@ -48,6 +48,12 @@
     <Filter Include="Shader\MathShader">
       <UniqueIdentifier>{73585b5c-b010-46f8-a4db-2a4943cbe56e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shader\DepthOfField">
+      <UniqueIdentifier>{f4836eb0-a8f8-4903-bcbb-94e663823c9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\GameOfLife">
+      <UniqueIdentifier>{faf36389-747e-4333-8c72-e63f46bde61e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -91,9 +97,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="times.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="SimpleModels.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Skybox.h">
@@ -214,6 +217,33 @@
     </None>
     <None Include="shader\variance_shadow.vs.glsl">
       <Filter>Shader\Shadow</Filter>
+    </None>
+    <None Include="shader\momentsShadow.fs.glsl">
+      <Filter>Shader\Shadow</Filter>
+    </None>
+    <None Include="shader\momentsShadow.vs.glsl">
+      <Filter>Shader\Shadow</Filter>
+    </None>
+    <None Include="shader\DepthOfField\dof.fs.glsl">
+      <Filter>Shader\DepthOfField</Filter>
+    </None>
+    <None Include="shader\DepthOfField\dof.vs.glsl">
+      <Filter>Shader\DepthOfField</Filter>
+    </None>
+    <None Include="shader\DepthOfField\phong.fs.glsl">
+      <Filter>Shader\DepthOfField</Filter>
+    </None>
+    <None Include="shader\DepthOfField\phong.vs.glsl">
+      <Filter>Shader\DepthOfField</Filter>
+    </None>
+    <None Include="shader\DepthOfField\sat.cs.glsl">
+      <Filter>Shader\DepthOfField</Filter>
+    </None>
+    <None Include="shader\GameOfLife\gameOfLife.cs.glsl">
+      <Filter>Shader\GameOfLife</Filter>
+    </None>
+    <None Include="shader\GameOfLife\gameOfLifeRandomNumber.cs.glsl">
+      <Filter>Shader\GameOfLife</Filter>
     </None>
   </ItemGroup>
 </Project>

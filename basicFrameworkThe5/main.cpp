@@ -3,7 +3,7 @@
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <Ant/AntTweakBar.h>
-
+#include <memory>
 #include "helper.h"
 #include "Shader.h"
 #include "Model.h"
@@ -93,7 +93,17 @@ int SHADOW_WIDTH = 1024;
 int SHADOW_HEIGHT = 1024;
 Shader msm_depthShader;
 Shader msm_shadowShader;
+Shader momentsShadowShader;
 Shader variance_shadowShader;
+
+//DepthOfField
+Shader depthOfFieldShader;
+Shader phongDofShader;
+Shader satComputeShader;
+
+//Game of Life
+Shader gameOfLifeRandomNumberComputeShader;
+Shader gameOfLifeComputeShader;
 
 //Debug-Shader
 Shader quadScreenSizedShader;
@@ -104,29 +114,39 @@ Shader standardMiniDepthFboShader;
 Model nanosuitModel;
 Model sponzaModel;
 
+//Textures
+Texture *DoF_sat0 = 0, *DoF_sat1 = 0, *DoF_satResult = 0;
+int gameOfLifeTextureHeight, gameOfLifeTextureWidth;
+Texture *gameOfLifeInputTexture = 0, *gameOfLifeOutputTexture = 0;
+
 //Frame buffer object
 FBO *fbo = 0;
 FBO *fboDepthShadowMap = 0;
-FBO *fboMomentsShadowMap = 0;
+FBO *fboRgbDepthShadow= 0;
+FBO *fboRgbDepth = 0;
 
 //Tweakbar
 TwBar *tweakBar;
 enum SHADER_TYPE { STANDARD_SHADER,
-				SHADOW_MAP_SHADER,
-				VARIANCE_SHADOW_MAP_SHADER,
-				MOMENTS_SHADOW_MAP_SHADER,
-				DEBUG_SHADER, 
-				FOG_SHADER, 
-				EXP_FOG_SHADER, 
-				FOG_SCREENSPACE_SHADER, 
-				FOG_SCREENSPACE_NOISE_SHADER, 
-				NOISE_SHADER,
-				EMPTY_SHADER};
+					SHADOW_MAP_SHADER,
+					VARIANCE_SHADOW_MAP_SHADER,
+					MOMENTS_SHADOW_MAP_SHADER,
+					DEBUG_SHADER, 
+					FOG_SHADER, 
+					EXP_FOG_SHADER, 
+					FOG_SCREENSPACE_SHADER, 
+					FOG_SCREENSPACE_NOISE_SHADER, 
+					NOISE_SHADER,
+					DEPTH_OF_FIELD_SHADER,
+					EMPTY_SHADER,
+					GAME_OF_LIFE_SHADER
+};
 
-SHADER_TYPE current_Shader = MOMENTS_SHADOW_MAP_SHADER;
+SHADER_TYPE current_Shader = GAME_OF_LIFE_SHADER;
 
 //Shadow
-float alpha_MomentShadow = 0.007f;
+float depthBias_MomentShadow = 0.005f;
+float momentBias_MomentShadow = 0.002f;
 
 //Fog-Variables
 float rho_Fog = 0.24;
@@ -147,9 +167,19 @@ int fogType_ScreenSpace = 0;
 float density_Noise = 8.0f;
 int type_Noise = 0;
 
+//Depth of Field
+float focalPlane = 19.0f;
+float blurFactor = 0.0f;
+bool manualBlur = false;
+
+//GameOfLife
+bool nextFrame = false;
+
 //Helper-Tweakbar-Button
 bool helperBoolButton = false;
-
+/* *********************************************************************************************************
+TweakBar
+********************************************************************************************************* */
 void setupTweakBar() {
 	// Tweakbar
 	TwInit(TW_OPENGL_CORE, NULL);
@@ -166,10 +196,12 @@ void setupTweakBar() {
 									{FOG_SCREENSPACE_SHADER, "Screenspace Fog"}, 
 									{FOG_SCREENSPACE_NOISE_SHADER, "Screenspace Noise Fog" },
 									{NOISE_SHADER, "Noise Textures"}, 
-									{EMPTY_SHADER, "Empty"} };
+									{DEPTH_OF_FIELD_SHADER, "Depth of field"},
+									{EMPTY_SHADER, "Empty"},
+									{GAME_OF_LIFE_SHADER , "Game of life"} };
 
 	// ATB identifier for the array
-	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 11);
+	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 13); //Last number has to be the size of Shader_array!!
 
 	// Link it to the tweak bar
 	TwAddVarRW(tweakBar, "Shader", ShaderTwType, &current_Shader, NULL);
@@ -197,8 +229,17 @@ void setupTweakBar() {
 	TwAddVarRW(tweakBar, "type_Noise", TW_TYPE_INT32, &type_Noise, " label='Noise Type' min=0 step=1 max=100");
 
 	//Shadow
-	TwAddVarRW(tweakBar, "alpha_MomentShadow", TW_TYPE_FLOAT, &alpha_MomentShadow, " label='Bias alpha' min=0.0 step=0.00001 max=1.0");
+	TwAddVarRW(tweakBar, "depthBias_MomentShadow", TW_TYPE_FLOAT, &depthBias_MomentShadow, " label='Depth Bias' min=0.0 step=0.00001 max=1.0");
+	TwAddVarRW(tweakBar, "momentBias_MomentShadow", TW_TYPE_FLOAT, &momentBias_MomentShadow, " label='Moment Bias' min=0.0 step=0.00001 max=1.0");
 	
+	//Depth of Field
+	TwAddVarRW(tweakBar, "focalPlane", TW_TYPE_FLOAT, &focalPlane, " label='Focal plane' min=0.0 step=0.01 max=100.0");
+	TwAddVarRW(tweakBar, "blurFactor", TW_TYPE_FLOAT, &blurFactor, " label='Blur factor' min=0.0 step=0.01 max=100.0");
+	TwAddVarRW(tweakBar, "manualBlur", TW_TYPE_BOOLCPP, &manualBlur, " label='Manual Blur' ");
+
+	//Game of life
+	TwAddVarRW(tweakBar, "nextFrame", TW_TYPE_BOOLCPP, &nextFrame, " label='Skip Display' ");
+
 	//Helper-Tweakbar-Button
 	TwAddVarRW(tweakBar, "helperBoolButton", TW_TYPE_BOOLCPP, &helperBoolButton, " label='Set Light to Cam' ");
 }
@@ -224,7 +265,16 @@ void updateTweakBar() {
 	TwDefine("Settings/type_Noise visible=false");
 
 	//Shadow
-	TwDefine("Settings/alpha_MomentShadow visible=false");
+	TwDefine("Settings/depthBias_MomentShadow visible=false");
+	TwDefine("Settings/momentBias_MomentShadow visible=false");
+
+	//Depth of field
+	TwDefine("Settings/focalPlane visible=false");
+	TwDefine("Settings/blurFactor visible=false");
+	TwDefine("Settings/manualBlur visible=false");
+
+	//Game Of Life
+	TwDefine("Settings/nextFrame visible=false");
 	
 	//Helper-Tweakbar-Button
 	TwDefine("Settings/helperBoolButton visible=false");
@@ -245,7 +295,8 @@ void updateTweakBar() {
 
 		case MOMENTS_SHADOW_MAP_SHADER:
 			TwDefine("Settings/helperBoolButton visible=true");
-			TwDefine("Settings/alpha_MomentShadow visible=true");
+			TwDefine("Settings/depthBias_MomentShadow visible=true");
+			TwDefine("Settings/momentBias_MomentShadow visible=true");
 			break;
 
 		case DEBUG_SHADER:
@@ -279,9 +330,21 @@ void updateTweakBar() {
 			TwDefine("Settings/density_Noise visible=true");
 			TwDefine("Settings/type_Noise visible=true");
 			break;
+
+		case DEPTH_OF_FIELD_SHADER:
+			TwDefine("Settings/focalPlane visible=true");
+			TwDefine("Settings/blurFactor visible=true");
+			TwDefine("Settings/manualBlur visible=true");
+			break;
+
+		case GAME_OF_LIFE_SHADER:
+			TwDefine("Settings/nextFrame visible=true");
+			break;
 	}
 }
-
+/* *********************************************************************************************************
+Initiation
+********************************************************************************************************* */
 void init() {
 	//Simple-Model
 	quad = new simpleQuad();
@@ -299,6 +362,30 @@ void init() {
 
 	//Skybox
 	skybox.createSkybox(negz, posz, posy, negy, negx, posx);
+
+	//Depth of Field
+	DoF_sat0 = new Texture(WIDTH, HEIGHT, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	DoF_sat1 = new Texture(WIDTH, HEIGHT, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+
+	//Game Of Life Variables
+	gameOfLifeTextureHeight = 32;
+	gameOfLifeTextureWidth = 32;
+	gameOfLifeInputTexture = new Texture(gameOfLifeTextureWidth, gameOfLifeTextureHeight, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	gameOfLifeOutputTexture = new Texture(gameOfLifeTextureWidth, gameOfLifeTextureHeight, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	//Game Of Life (Fill start Texture)
+	gameOfLifeRandomNumberComputeShader.enable();
+	glActiveTexture(GL_TEXTURE0);
+	gameOfLifeInputTexture->Bind();
+	glBindImageTexture(0, gameOfLifeInputTexture->Index(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+	GLint work_size[3];
+	glGetProgramiv(gameOfLifeRandomNumberComputeShader.ID, GL_COMPUTE_WORK_GROUP_SIZE, work_size);
+	int w = gameOfLifeTextureWidth, h = gameOfLifeTextureHeight;
+	int call_x = (w / work_size[0]) + (w % work_size[0] ? 1 : 0);
+	int call_y = (h / work_size[1]) + (h % work_size[1] ? 1 : 0);
+	glUniform2i(glGetUniformLocation(gameOfLifeRandomNumberComputeShader.ID, "res"), w, h);
+	glDispatchCompute(call_x, call_y, 1); //Number of work groups to be launched in x,y and z direction
+	gameOfLifeInputTexture->Unbind();
+	gameOfLifeRandomNumberComputeShader.disable();
 }
 
 void initFBO() {
@@ -308,11 +395,16 @@ void initFBO() {
 	fboDepthShadowMap = new FBO("DepthShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_DEPTH_16BIT);
 	gl_check_error("post DepthShadowMap");
 
-	fboMomentsShadowMap = new FBO("MomentsShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_RGB_DEPTH_32BIT);
+	fboRgbDepthShadow = new FBO("MomentsShadowMap", SHADOW_WIDTH, SHADOW_HEIGHT, FBO_RGB_DEPTH_32BIT);
+	gl_check_error("MomentsShadowMap");
+
+	fboRgbDepth = new FBO("RgbDepth", WIDTH, HEIGHT, FBO_RGBA_DEPTH_32BIT);
 	gl_check_error("MomentsShadowMap");
 }
 
 void loadShader(bool init) {
+	std::cout << "main.cpp, loadShader: Reload Shader" << std::endl;
+
 	basicShader = Shader("./shader/standard.vs.glsl", "./shader/standard.fs.glsl");
 	modelLoaderShader = Shader("./shader/modelLoader.vs.glsl", "./shader/modelLoader.fs.glsl");
 	modelLoaderShaderGbuffer = Shader("./shader/modelLoaderGbuffer.vs.glsl", "./shader/modelLoaderGbuffer.fs.glsl");
@@ -338,8 +430,18 @@ void loadShader(bool init) {
 	shadowMapShader = Shader("./shader/shadowMap.vs.glsl", "./shader/shadowMap.fs.glsl");
 	msm_depthShader = Shader("./shader/msm_depth.vs.glsl", "./shader/msm_depth.fs.glsl");
 	msm_shadowShader = Shader("./shader/msm_shadow.vs.glsl", "./shader/msm_shadow.fs.glsl");
+	momentsShadowShader = Shader("./shader/momentsShadow.vs.glsl", "./shader/momentsShadow.fs.glsl");
 	variance_shadowShader = Shader("./shader/variance_shadow.vs.glsl", "./shader/variance_shadow.fs.glsl");
 
+	//Depth of Field
+	depthOfFieldShader = Shader("./shader/DepthOfField/dof.vs.glsl", "./shader/DepthOfField/dof.fs.glsl");
+	satComputeShader = Shader("./shader/DepthOfField/sat.cs.glsl");
+	phongDofShader = Shader("./shader/DepthOfField/phong.vs.glsl", "./shader/DepthOfField/phong.fs.glsl");
+
+	//GameOfLife
+	gameOfLifeRandomNumberComputeShader = Shader("./shader/GameOfLife/gameOfLifeRandomNumber.cs.glsl");
+	gameOfLifeComputeShader = Shader("./shader/GameOfLife/gameOfLife.cs.glsl");
+	
 	//FBO-Shader
 	depthOnlyShader = Shader("./shader/depthOnly.vs.glsl", "./shader/depthOnly.fs.glsl");
 }
@@ -357,10 +459,11 @@ void sponzaStandardScene(){
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	glm::mat4 modelMatrix;
+	
 	modelLoaderShader.enable();
 	modelLoaderShader.uniform("projection", projMatrix);
 	modelLoaderShader.uniform("view", viewMatrix);
+	glm::mat4 modelMatrix;
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
 	modelLoaderShader.uniform("model", modelMatrix);
@@ -465,7 +568,7 @@ void sponzaShadowMap() {
 
 void sponzaVarianceShadowMap() {
 	//Fill FBO
-	fboMomentsShadowMap->Bind();
+	fboRgbDepthShadow->Bind();
 
 	int orig_viewport[4];
 	glGetIntegerv(GL_VIEWPORT, orig_viewport);
@@ -502,7 +605,7 @@ void sponzaVarianceShadowMap() {
 	sponzaModel.Draw(msm_depthShader);
 
 	msm_depthShader.disable();
-	fboMomentsShadowMap->Unbind();
+	fboRgbDepthShadow->Unbind();
 
 	//Draw Shadow
 	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
@@ -523,10 +626,10 @@ void sponzaVarianceShadowMap() {
 	variance_shadowShader.uniform("uMatM", modelMatrix);
 	variance_shadowShader.uniform("uMatVP_Light", lightSpaceMatrix);
 
-	fboMomentsShadowMap->bindTexture(0, 3);
+	fboRgbDepthShadow->bindTexture(0, 3);
 	variance_shadowShader.uniform("shadowMap_moments", 3);
 
-	fboMomentsShadowMap->bindDepth(4);
+	fboRgbDepthShadow->bindDepth(4);
 	variance_shadowShader.uniform("shadowMap_depth", 4);
 
 	variance_shadowShader.uniform("lightPos", light.lightPosition);
@@ -536,27 +639,29 @@ void sponzaVarianceShadowMap() {
 
 	//Debug Textures
 	standardMiniColorFboShader.enable();
-	fboMomentsShadowMap->bindTexture(0);
+	fboRgbDepthShadow->bindTexture(0);
 	standardMiniColorFboShader.uniform("tex", 0);
 	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
 	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
 	quad->draw();
-	fboMomentsShadowMap->unbindTexture(0);
+	fboRgbDepthShadow->unbindTexture(0);
 	standardMiniColorFboShader.disable();
 
 	standardMiniDepthFboShader.enable();
-	fboMomentsShadowMap->bindDepth();
+	fboRgbDepthShadow->bindDepth();
 	standardMiniDepthFboShader.uniform("tex", 0);
 	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.7f, 0.4f));
 	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 0.7f));
 	quad->draw();
-	fboMomentsShadowMap->unbindDepth();
+	fboRgbDepthShadow->unbindDepth();
 	standardMiniDepthFboShader.disable();
 }
 
 void sponzaMomentsShadowMap(){
+	///////////////////////////////						  
 	//Fill FBO
-	fboMomentsShadowMap->Bind();
+	///////////////////////////////	
+	fboDepthShadowMap->Bind();
 
 	int orig_viewport[4];
 	glGetIntegerv(GL_VIEWPORT, orig_viewport);
@@ -571,9 +676,9 @@ void sponzaMomentsShadowMap(){
 	glClearColor(0.0f, 0.5f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
-	//glEnable(GL_CULL_FACE);
-	//glCullFace(GL_FRONT);
-	msm_depthShader.enable();
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_FRONT);
+	depthOnlyShader.enable();
 
 	float near_plane = 1.0f, far_plane = 200.0f;
 	glm::mat4 lightProjection = glm::ortho(-80.0f, 80.0f, -80.0f, 80.0f, near_plane, far_plane);
@@ -587,17 +692,17 @@ void sponzaMomentsShadowMap(){
 		lightSpaceMatrix = projMatrix * viewMatrix;
 	}
 
-	msm_depthShader.uniform("uMatVP_Light", lightSpaceMatrix);
+	depthOnlyShader.uniform("lightSpaceMatrix", lightSpaceMatrix);
 
 	glm::mat4 modelMatrix;
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
-	msm_depthShader.uniform("uMatM", modelMatrix);
-	msm_depthShader.uniform("derivative", false);
-	sponzaModel.Draw(msm_depthShader);
+	depthOnlyShader.uniform("modelMatrix", modelMatrix);
 
-	msm_depthShader.disable();
-	fboMomentsShadowMap->Unbind();	
+	sponzaModel.Draw(depthOnlyShader);
+
+	depthOnlyShader.disable();
+	fboDepthShadowMap->Unbind();
 
 	//Draw Shadow
 	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
@@ -609,45 +714,38 @@ void sponzaMomentsShadowMap(){
 	skybox.Draw(skyboxShader);
 	skyboxShader.disable();
 
-	//Draw Scene with shadows
+	///////////////////////////////						  
+	//Draw Scene
+	///////////////////////////////	
 	glViewport(orig_viewport[0], orig_viewport[1], orig_viewport[2], orig_viewport[3]);
 	glCullFace(GL_BACK);
-	msm_shadowShader.enable();
-	msm_shadowShader.uniform("uMatP", projMatrix);
-	msm_shadowShader.uniform("uMatV", viewMatrix);
-	msm_shadowShader.uniform("uMatM", modelMatrix);
-	msm_shadowShader.uniform("uMatVP_Light", lightSpaceMatrix);
-	msm_shadowShader.uniform("alpha", alpha_MomentShadow);
 
+	momentsShadowShader.enable();
+	momentsShadowShader.uniform("uMatP", projMatrix);
+	momentsShadowShader.uniform("uMatV", viewMatrix);
+	momentsShadowShader.uniform("uMatM", modelMatrix);
+	momentsShadowShader.uniform("uMatVP_Light", lightSpaceMatrix);
+	momentsShadowShader.uniform("depthBias", depthBias_MomentShadow);
+	momentsShadowShader.uniform("momentBias",momentBias_MomentShadow);
 
-	fboMomentsShadowMap->bindTexture(0, 3);
-	msm_shadowShader.uniform("shadowMap_moments", 3);
+	fboDepthShadowMap->bindDepth(4);
+	momentsShadowShader.uniform("shadowMap_depth", 4);
 
-	fboMomentsShadowMap->bindDepth(4);
-	msm_shadowShader.uniform("shadowMap_depth", 4);
+	momentsShadowShader.uniform("lightPos", light.lightPosition);
+	momentsShadowShader.uniform("viewPos", glm::vec3(cam.position.x, cam.position.y, cam.position.z));
+	sponzaModel.Draw(momentsShadowShader);
+	momentsShadowShader.disable();
 
-	msm_shadowShader.uniform("lightPos", light.lightPosition);
-	msm_shadowShader.uniform("viewPos", glm::vec3(cam.position.x, cam.position.y, cam.position.z));
-	sponzaModel.Draw(msm_shadowShader);
-	msm_shadowShader.disable();
-
+	///////////////////////////////						  
 	//Debug Textures
-	standardMiniColorFboShader.enable();
-	fboMomentsShadowMap->bindTexture(0);
-	standardMiniColorFboShader.uniform("tex", 0);
-	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
-	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
-	quad->draw();
-	fboMomentsShadowMap->unbindTexture(0);
-	standardMiniColorFboShader.disable();
-
+	///////////////////////////////	
 	standardMiniDepthFboShader.enable();
-	fboMomentsShadowMap->bindDepth();
+	fboDepthShadowMap->bindAllTextures();
 	standardMiniDepthFboShader.uniform("tex", 0);
-	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.7f, 0.4f));
-	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 0.7f));
+	standardMiniDepthFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
+	standardMiniDepthFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
 	quad->draw();
-	fboMomentsShadowMap->unbindDepth();
+	fboDepthShadowMap->unbindAllTextures();
 	standardMiniDepthFboShader.disable();
 }
 
@@ -873,6 +971,220 @@ void renderNoise() {
 	noiseFunctionShader.disable();
 }
 
+void calculateSATforDoF() {
+	Texture* input = &(fboRgbDepth->attachment_texture[0]);
+	Texture* output = DoF_sat0;
+
+	int n = std::ceil(std::log2(WIDTH)) * 1;
+	int m = std::ceil(std::log2(HEIGHT)) * 1;
+
+	for (int i = 0; i < n; i++) {
+		satComputeShader.enable();
+		glActiveTexture(GL_TEXTURE0);
+		input->Bind();
+		glBindImageTexture(1, output->Index(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+		GLint work_size[3];
+		glGetProgramiv(satComputeShader.ID, GL_COMPUTE_WORK_GROUP_SIZE, work_size);
+
+		int w = WIDTH, h = HEIGHT;
+
+		int call_x = (w / work_size[0]) + (w % work_size[0] ? 1 : 0);
+		int call_y = (h / work_size[1]) + (h % work_size[1] ? 1 : 0);
+		glUniform2i(glGetUniformLocation(satComputeShader.ID, "res"), w, h);
+
+		glUniform1i(glGetUniformLocation(satComputeShader.ID, "pass"), i);
+		glUniform1i(glGetUniformLocation(satComputeShader.ID, "stepstuff"), 0);
+
+		glDispatchCompute(call_x, call_y, 1);
+		glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+		input->Unbind();
+
+		if (input == &(fboRgbDepth->attachment_texture[0]))
+			input = DoF_sat1;
+
+		Texture* temp = input;
+		input = output;
+		output = temp;
+	}
+
+	for (int i = 0; i < m; i++) {
+		satComputeShader.enable();
+		glActiveTexture(GL_TEXTURE0);
+		input->Bind();
+		glBindImageTexture(1, output->Index(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+		GLint work_size[3];
+		glGetProgramiv(satComputeShader.ID, GL_COMPUTE_WORK_GROUP_SIZE, work_size);
+		int w = WIDTH, h = HEIGHT;
+		int call_x = (w / work_size[0]) + (w % work_size[0] ? 1 : 0);
+		int call_y = (h / work_size[1]) + (h % work_size[1] ? 1 : 0);
+		glUniform2i(glGetUniformLocation(satComputeShader.ID, "res"), w, h);
+
+		glUniform1i(glGetUniformLocation(satComputeShader.ID, "pass"), i);
+		glUniform1i(glGetUniformLocation(satComputeShader.ID, "stepstuff"), 1);
+
+		glDispatchCompute(call_x, call_y, 1);
+		glBindImageTexture(1, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+		input->Unbind();
+
+		Texture* temp = input;
+		input = output;
+		output = temp;
+	}
+
+	DoF_satResult = input;	
+}
+
+void renderDofScene() {
+	
+
+	fboRgbDepth->Bind();
+	{
+		glClearColor(0.2f, 0.2f, 0.2f, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
+		phongDofShader.enable();
+		phongDofShader.uniform("viewMatrix", viewMatrix);
+		phongDofShader.uniform("projMatrix", projMatrix);
+		phongDofShader.uniform("lightDir", glm::normalize(glm::vec3(0.3f, 0.3f, 0.3f)));
+		glm::mat4 modelMatrix;
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+		phongDofShader.uniform("modelMatrix", modelMatrix);
+		phongDofShader.uniform("texture_diffuse", 0);
+		sponzaModel.Draw(phongDofShader);
+		phongDofShader.disable();
+	}
+	fboRgbDepth->Unbind();
+
+	calculateSATforDoF();
+
+	// apply depth of field
+	{
+		glClearColor(0.2f, 0.2f, 0.2f, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		depthOfFieldShader.enable();
+
+		glActiveTexture(GL_TEXTURE0);
+		DoF_satResult->Bind();
+		depthOfFieldShader.uniform("sat", 0);
+
+		glActiveTexture(GL_TEXTURE1);
+		fboRgbDepth->bindTexture(0, 1);
+		depthOfFieldShader.uniform("color", 1);
+
+		glActiveTexture(GL_TEXTURE2);
+		fboRgbDepth->bindDepth(2);
+		depthOfFieldShader.uniform("depth", 2);
+
+		depthOfFieldShader.uniform("manualBlur", manualBlur);
+		depthOfFieldShader.uniform("blur", blurFactor);
+		depthOfFieldShader.uniform("focalPlane", focalPlane);
+		int w = WIDTH, h = HEIGHT;
+		glUniform2i(glGetUniformLocation(depthOfFieldShader.ID, "res"), w, h);
+
+		quad->draw();
+	}
+
+	gl_check_error("after dof");
+
+	depthOfFieldShader.disable();
+	DoF_satResult->Unbind();
+	fboRgbDepth->unbindTexture(0, 1);
+	fboRgbDepth->unbindDepth(2);
+
+	//standardMiniColorFboShader.enable();
+	//DoF_satResult->Bind();
+	//standardMiniColorFboShader.uniform("tex", 0);
+	//standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
+	//standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	//quad->draw();
+	//DoF_satResult->Unbind();
+	//standardMiniColorFboShader.disable();
+
+}
+
+void renderGameOfLife() {
+	/////////////////////////////////////////////////////////////
+	//Image vs Texture:
+	//-Can only write to images not textues
+	//-Can read from images and textues
+	//-Images seem to be slower
+	/////////////////////////////////////////////////////////////
+	glDisable(GL_DEPTH_TEST);
+
+	if (!nextFrame) {
+		gameOfLifeComputeShader.enable();
+
+		glActiveTexture(GL_TEXTURE0);
+		gameOfLifeInputTexture->Bind();
+		glBindImageTexture(0, gameOfLifeInputTexture->Index(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+
+		glActiveTexture(GL_TEXTURE1);
+		gameOfLifeOutputTexture->Bind();
+		glBindImageTexture(1, gameOfLifeOutputTexture->Index(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+		GLint work_size[3];
+		glGetProgramiv(gameOfLifeComputeShader.ID, GL_COMPUTE_WORK_GROUP_SIZE, work_size);
+		int w = gameOfLifeTextureWidth, h = gameOfLifeTextureHeight;
+		int call_x = (w / work_size[0]) + (w % work_size[0] ? 1 : 0);
+		int call_y = (h / work_size[1]) + (h % work_size[1] ? 1 : 0);
+		glUniform2i(glGetUniformLocation(gameOfLifeComputeShader.ID, "res"), w, h);
+		glDispatchCompute(call_x, call_y, 1); //Number of work groups to be launched in x,y and z direction
+
+		gameOfLifeInputTexture->Unbind();
+		gameOfLifeOutputTexture->Unbind();
+		gameOfLifeComputeShader.disable();
+	}
+
+	
+	//Display
+	standardMiniColorFboShader.enable();
+	glActiveTexture(GL_TEXTURE0);
+	gameOfLifeOutputTexture->Bind();
+	standardMiniColorFboShader.uniform("tex", 0);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.0f, 0.0f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	quad->draw();
+	gameOfLifeOutputTexture->Unbind();
+	standardMiniColorFboShader.disable();
+	
+	/*
+	//Debug window
+	//Input Texture
+	standardMiniColorFboShader.enable();
+	glActiveTexture(GL_TEXTURE0);
+	gameOfLifeInputTexture->Bind();
+	standardMiniColorFboShader.uniform("tex", 0);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	quad->draw();
+	gameOfLifeInputTexture->Unbind();
+	standardMiniColorFboShader.disable();
+
+	//Output Texture
+	standardMiniColorFboShader.enable();
+	glActiveTexture(GL_TEXTURE1);
+	gameOfLifeOutputTexture->Bind();
+	standardMiniColorFboShader.uniform("tex", 1);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.3f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 0.6f));
+	quad->draw();
+	gameOfLifeOutputTexture->Unbind();
+	standardMiniColorFboShader.disable();
+	*/
+
+	//Swap images (necessary to stop racing situation)
+	if (!nextFrame) {
+		Texture* temp = gameOfLifeInputTexture;
+		gameOfLifeInputTexture = gameOfLifeOutputTexture;
+		gameOfLifeOutputTexture = temp;
+		//nextFrame = true;
+	}
+}
+
+/* *********************************************************************************************************
+Display + Main
+********************************************************************************************************* */
 void display() {
 	//Timer
 	timer.update();
@@ -935,7 +1247,15 @@ void display() {
 			renderNoise();
 			break;
 
+		case DEPTH_OF_FIELD_SHADER:
+			renderDofScene();
+			break;
+
 		case EMPTY_SHADER:
+			break;
+
+		case GAME_OF_LIFE_SHADER:
+			renderGameOfLife();
 			break;
 	}
 
@@ -947,64 +1267,6 @@ void display() {
 }
 
 int main(int argc, char** argv) {
-	//glm::mat3 test1 = glm::mat3(2, 0, 0, 6, 1, 0, -8, 5, 3);
-	//glm::mat3 test2 = glm::mat3(2,6,-8,0,1,5,0,0,3);
-
-	//std::cout << glm::to_string(test1 * test2) << std::endl;
-	//std::cout << glm::to_string(test2 * test1) << std::endl;
-	//std::cout << " " << std::endl;
-
-	//glm::mat4 Matrix = glm::mat4(18.00000, 22.00000, 54.00000, 42.00000,
-	//	22.00000, 70.00000, 86.00000, 62.00000,
-	//	54.00000, 86.00000, 174.00000, 134.00000,
-	//	42.00000, 62.00000, 134.00000, 106.00000);
-
-	//for (int i = 0; i < 4; i++) {
-	//	std::cout << "Row " << i << ": ";
-	//	for (int j = 0; j < 4; j++) {
-	//		std::cout << Matrix[i][j] << " ";
-	//	}
-	//	std::cout << " " << std::endl;
-	//}
-
-	//std::cout << " " << std::endl;
-
-	//glm::mat4 MatrixL = choleskyDecomposition(Matrix);
-	//for (int i = 0; i < 4; i++) {
-	//	std::cout << "Row " << i << ": ";
-	//	for (int j = 0; j < 4; j++) {
-	//		std::cout << MatrixL[i][j] << " ";
-	//	}
-	//	std::cout << " " << std::endl;
-	//}
-
-	//std::cout << "Solver:" << std::endl;
-	//std::cout << glm::to_string(choleskyEvaluation(MatrixL, glm::transpose(MatrixL), glm::vec4(1.0f,2.0f,3.0f,4.0f))) << std::endl;
-	//std::cout << " " << std::endl;
-
-	//glm::mat4 recalcMatrix = MatrixL * glm::transpose(MatrixL);
-	//for (int i = 0; i < 4; i++) {
-	//	std::cout << "Row " << i << ": ";
-	//	for (int j = 0; j < 4; j++) {
-	//		std::cout << recalcMatrix[i][j] << " ";
-	//	}
-	//	std::cout << " " << std::endl;
-	//}
-	//glm::mat3 m = glm::mat3(4, 12, -16,
-	//						12, 37, -43,
-	//						-16, -43, 98);
-
-	////glm::mat3 m = glm::mat3(25.00000, 15.00000, -5.00000,
-	////	15.00000, 18.00000, 0.00000,
-	////	-5.00000, 0.00000, 11.00000);
-	//glm::mat3 mL = choleskyDecomposition(m);
-	//std::cout << to_string(m) << std::endl;
-	//std::cout << to_string(mL) << std::endl;
-	//std::cout << to_string(mL * glm::transpose(mL)) << std::endl;
-	//std::cout << to_string(glm::transpose(mL) * mL) << std::endl;
-
-
-
 	glutInit(&argc, argv);
 	glutInitWindowSize(WIDTH, HEIGHT);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE | GLUT_STENCIL);

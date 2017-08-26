@@ -13,6 +13,7 @@ enum FBO_Type {
 	FBO_EMPTY,
 	FBO_RGB_DEPTH_16BIT,
 	FBO_RGB_DEPTH_32BIT,
+	FBO_RGBA_DEPTH_32BIT,
 	FBO_GBUFFER_16BIT,
 	FBO_GBUFFER_32BIT, 
 	FBO_DEPTH_16BIT,
@@ -126,6 +127,25 @@ public:
 				gl_check_error("post fbo setup");
 				break;
 			}
+			case FBO_RGBA_DEPTH_32BIT: {
+				Texture *rgba = 0, *depth = 0;
+				//FixMe: Why does this crash the program
+
+				glEnable(GL_TEXTURE_2D);
+				gl_check_error("fbo");
+				rgba = new Texture(w, h, GL_RGBA32F, GL_RGBA, GL_FLOAT);	gl_check_error("rgb tex");
+				depth = new Texture(w, h, GL_DEPTH_COMPONENT32, GL_DEPTH_COMPONENT, GL_FLOAT);
+				gl_check_error("depth tex");
+
+				//FixMe: This alone works
+				this->Bind();
+				this->AddTextureAsColorbuffer("rgba", rgba);
+				this->AddTextureAsDepthbuffer(depth);
+				this->Check();
+				this->Unbind();
+				gl_check_error("post fbo setup");
+				break;
+			}
 			case FBO_DEPTH_16BIT: {
 				// We won't use a color texture for a only depth FBO
 				Texture *depth = 0;
@@ -140,7 +160,6 @@ public:
 				gl_check_error("post fbo setup");
 				break;
 			}
-
 			case FBO_DEPTH_32BIT: {
 				// We won't use a color texture for a only depth FBO
 				Texture *depth = 0;
@@ -160,7 +179,6 @@ public:
 	}
 
 	void Bind() {
-
 		//glBindTexture(GL_TEXTURE_2D, 0); //Just to make sure the texture is not bound
 		gl_check_error("pre bind");
 		glBindFramebuffer(GL_FRAMEBUFFER, id);
@@ -276,7 +294,6 @@ public:
 		glActiveTexture(GL_TEXTURE0 + activeTexture);
 		depthbuffer->Unbind();
 	}
-
 };
 
 #endif

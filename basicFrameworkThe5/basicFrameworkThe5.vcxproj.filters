@@ -45,14 +45,14 @@
     <Filter Include="Shader\Shadow">
       <UniqueIdentifier>{35cc229b-7faf-4ed2-a54e-db356e1a92d2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Shader\MathShader">
-      <UniqueIdentifier>{73585b5c-b010-46f8-a4db-2a4943cbe56e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shader\DepthOfField">
       <UniqueIdentifier>{f4836eb0-a8f8-4903-bcbb-94e663823c9f}</UniqueIdentifier>
     </Filter>
     <Filter Include="Shader\GameOfLife">
       <UniqueIdentifier>{faf36389-747e-4333-8c72-e63f46bde61e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader\PhysicEngine">
+      <UniqueIdentifier>{a9271c71-2f16-46be-be09-56c5484a015c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -87,16 +87,7 @@
     <ClInclude Include="Model.h">
       <Filter>OpenGL</Filter>
     </ClInclude>
-    <ClInclude Include="helper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="loadPNG.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="mathConstants.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="times.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Skybox.h">
@@ -107,6 +98,18 @@
     </ClInclude>
     <ClInclude Include="FBO.h">
       <Filter>FBO</Filter>
+    </ClInclude>
+    <ClInclude Include="helper.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="loadPNG.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="times.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="InstancedMesh.h">
+      <Filter>OpenGL</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -244,6 +247,15 @@
     </None>
     <None Include="shader\GameOfLife\gameOfLifeRandomNumber.cs.glsl">
       <Filter>Shader\GameOfLife</Filter>
+    </None>
+    <None Include="shader\LearnGL\instancing.fs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\LearnGL\instancing.vs.glsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="shader\PhysicEngine\particlePhysic.cs.glsl">
+      <Filter>Shader\PhysicEngine</Filter>
     </None>
   </ItemGroup>
 </Project>

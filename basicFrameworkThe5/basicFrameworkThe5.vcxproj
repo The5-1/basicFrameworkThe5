@@ -130,6 +130,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="helper.h" />
+    <ClInclude Include="InstancedMesh.h" />
     <ClInclude Include="loadPNG.h" />
     <ClInclude Include="mathConstants.h" />
     <ClInclude Include="Mesh.h" />
@@ -161,6 +162,8 @@
     <None Include="shader\gbuffer.vs.glsl" />
     <None Include="shader\halfspaceFogTextured.fs.glsl" />
     <None Include="shader\halfspaceFogTextured.vs.glsl" />
+    <None Include="shader\LearnGL\instancing.fs.glsl" />
+    <None Include="shader\LearnGL\instancing.vs.glsl" />
     <None Include="shader\modelLoader.fs.glsl" />
     <None Include="shader\modelLoader.vs.glsl" />
     <None Include="shader\modelLoaderGbuffer.fs.glsl" />
@@ -173,6 +176,7 @@
     <None Include="shader\msm_shadow.vs.glsl" />
     <None Include="shader\noiseFunction.fs.glsl" />
     <None Include="shader\noiseFunction.vs.glsl" />
+    <None Include="shader\PhysicEngine\particlePhysic.cs.glsl" />
     <None Include="shader\quadScreenSized.fs.glsl" />
     <None Include="shader\quadScreenSized.vs.glsl" />
     <None Include="shader\screenSpaceFog.fs.glsl" />

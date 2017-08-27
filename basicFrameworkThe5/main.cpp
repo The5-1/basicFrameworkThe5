@@ -9,7 +9,7 @@
 #include "Model.h"
 #include "Skybox.h"
 #include "times.h"
-
+#include "InstancedMesh.h"
 #include "FBO.h"
 #include "Texture.h"
 
@@ -52,9 +52,9 @@ glm::mat4 viewMatrix;
 glm::vec3 lightDir;
 
 //Test-Object
-solidSphere *sphere = 0;
 simpleQuad * quad = 0;
 simpleCube * cube = 0;
+InstancedMesh *instancedSphere = 0;
 
 Mesh quadMesh;
 Mesh boxMesh;
@@ -105,10 +105,16 @@ Shader satComputeShader;
 Shader gameOfLifeRandomNumberComputeShader;
 Shader gameOfLifeComputeShader;
 
+//Instanced Shader
+Shader instancedMeshShader;
+
 //Debug-Shader
 Shader quadScreenSizedShader;
 Shader standardMiniColorFboShader;
 Shader standardMiniDepthFboShader;
+
+//Particle Physic Shader
+Shader particlePhysicComputeShader;
 
 //Models
 Model nanosuitModel;
@@ -118,6 +124,9 @@ Model sponzaModel;
 Texture *DoF_sat0 = 0, *DoF_sat1 = 0, *DoF_satResult = 0;
 int gameOfLifeTextureHeight, gameOfLifeTextureWidth;
 Texture *gameOfLifeInputTexture = 0, *gameOfLifeOutputTexture = 0;
+
+int mandalaTextureHeight, mandalaTextureWidth;
+Texture *mandalaInputTexture = 0, *mandalaOutputTexture = 0;
 
 //Frame buffer object
 FBO *fbo = 0;
@@ -139,7 +148,9 @@ enum SHADER_TYPE { STANDARD_SHADER,
 					NOISE_SHADER,
 					DEPTH_OF_FIELD_SHADER,
 					EMPTY_SHADER,
-					GAME_OF_LIFE_SHADER
+					GAME_OF_LIFE_SHADER,
+					MANDALA_SHADER,
+					INSTANCED_MESH_SHADER
 };
 
 SHADER_TYPE current_Shader = GAME_OF_LIFE_SHADER;
@@ -186,22 +197,25 @@ void setupTweakBar() {
 	tweakBar = TwNewBar("Settings");
 
 	// Array of drop down items
-	TwEnumVal Shader_array[] = { { STANDARD_SHADER, "Standard" }, 
+	TwEnumVal Shader_array[] = { { STANDARD_SHADER, "Standard" },
 									{SHADOW_MAP_SHADER, "Shadow Map" },
 									{VARIANCE_SHADOW_MAP_SHADER , "Variance Shadow Map" },
 									{MOMENTS_SHADOW_MAP_SHADER , "Moments Shadow Map"},
 									{DEBUG_SHADER, "Debug" },
 									{FOG_SHADER, "Fog" },
 									{EXP_FOG_SHADER, "Exponential fog" },
-									{FOG_SCREENSPACE_SHADER, "Screenspace Fog"}, 
+									{FOG_SCREENSPACE_SHADER, "Screenspace Fog"},
 									{FOG_SCREENSPACE_NOISE_SHADER, "Screenspace Noise Fog" },
-									{NOISE_SHADER, "Noise Textures"}, 
+									{NOISE_SHADER, "Noise Textures"},
 									{DEPTH_OF_FIELD_SHADER, "Depth of field"},
 									{EMPTY_SHADER, "Empty"},
-									{GAME_OF_LIFE_SHADER , "Game of life"} };
+									{GAME_OF_LIFE_SHADER , "Game of life"},
+									{MANDALA_SHADER, "Mandala"},
+									{INSTANCED_MESH_SHADER, "Instanced Mesh"}
+	};
 
 	// ATB identifier for the array
-	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 13); //Last number has to be the size of Shader_array!!
+	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 15); //Last number has to be the size of Shader_array!!
 
 	// Link it to the tweak bar
 	TwAddVarRW(tweakBar, "Shader", ShaderTwType, &current_Shader, NULL);
@@ -340,6 +354,13 @@ void updateTweakBar() {
 		case GAME_OF_LIFE_SHADER:
 			TwDefine("Settings/nextFrame visible=true");
 			break;
+
+		case MANDALA_SHADER:
+			TwDefine("Settings/nextFrame visible=true");
+			break;
+
+		case INSTANCED_MESH_SHADER:
+			break;
 	}
 }
 /* *********************************************************************************************************
@@ -352,6 +373,9 @@ void init() {
 
 	cube = new simpleCube();
 	cube->upload();
+
+	instancedSphere = new InstancedMesh();
+	instancedSphere->uploadSphere();
 
 	quadMesh.createScreenQuad();
 	boxMesh.createBox();
@@ -383,8 +407,31 @@ void init() {
 	int call_x = (w / work_size[0]) + (w % work_size[0] ? 1 : 0);
 	int call_y = (h / work_size[1]) + (h % work_size[1] ? 1 : 0);
 	glUniform2i(glGetUniformLocation(gameOfLifeRandomNumberComputeShader.ID, "res"), w, h);
+	glUniform1i(glGetUniformLocation(gameOfLifeRandomNumberComputeShader.ID, "type"), 1);
 	glDispatchCompute(call_x, call_y, 1); //Number of work groups to be launched in x,y and z direction
 	gameOfLifeInputTexture->Unbind();
+	gameOfLifeRandomNumberComputeShader.disable();
+
+
+	//Mandala Variables
+	mandalaTextureHeight = 32;
+	mandalaTextureWidth = 32;
+	mandalaInputTexture = new Texture(mandalaTextureWidth, mandalaTextureHeight, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	mandalaOutputTexture = new Texture(mandalaTextureWidth, mandalaTextureHeight, GL_RGBA32F, GL_RGBA, GL_FLOAT);
+	//Game Of Life (Fill start Texture)
+	gameOfLifeRandomNumberComputeShader.enable();
+	glActiveTexture(GL_TEXTURE0);
+	mandalaInputTexture->Bind();
+	glBindImageTexture(0, mandalaInputTexture->Index(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+	GLint work_sizeMandala[3];
+	glGetProgramiv(gameOfLifeRandomNumberComputeShader.ID, GL_COMPUTE_WORK_GROUP_SIZE, work_sizeMandala);
+	int wMandala = mandalaTextureWidth, hMandala = mandalaTextureHeight;
+	int call_xMandala = (wMandala / work_sizeMandala[0]) + (wMandala % work_sizeMandala[0] ? 1 : 0);
+	int call_yMandala = (hMandala / work_sizeMandala[1]) + (hMandala % work_sizeMandala[1] ? 1 : 0);
+	glUniform2i(glGetUniformLocation(gameOfLifeRandomNumberComputeShader.ID, "res"), wMandala, hMandala);
+	glUniform1i(glGetUniformLocation(gameOfLifeRandomNumberComputeShader.ID, "type"), 0);
+	glDispatchCompute(call_xMandala, call_yMandala, 1); //Number of work groups to be launched in x,y and z direction
+	mandalaInputTexture->Unbind();
 	gameOfLifeRandomNumberComputeShader.disable();
 }
 
@@ -442,8 +489,14 @@ void loadShader(bool init) {
 	gameOfLifeRandomNumberComputeShader = Shader("./shader/GameOfLife/gameOfLifeRandomNumber.cs.glsl");
 	gameOfLifeComputeShader = Shader("./shader/GameOfLife/gameOfLife.cs.glsl");
 	
+	//Instanced Mesh
+	instancedMeshShader = Shader("./shader/LearnGL/instancing.vs.glsl", "./shader/LearnGL/instancing.fs.glsl");
+
 	//FBO-Shader
 	depthOnlyShader = Shader("./shader/depthOnly.vs.glsl", "./shader/depthOnly.fs.glsl");
+
+	//ParticlePhysic
+	particlePhysicComputeShader = Shader("./shader/PhysicEngine/particlePhysic.cs.glsl");
 }
 
 /* *********************************************************************************************************
@@ -483,7 +536,6 @@ void sponzaStandardScene(){
 	basicShader.uniform("col", glm::vec3(0.0f, 1.0f, 0.0f));
 	boxMesh.Draw(basicShader);
 	basicShader.disable();
-
 }
 
 void sponzaShadowMap() {
@@ -1129,6 +1181,7 @@ void renderGameOfLife() {
 		int call_x = (w / work_size[0]) + (w % work_size[0] ? 1 : 0);
 		int call_y = (h / work_size[1]) + (h % work_size[1] ? 1 : 0);
 		glUniform2i(glGetUniformLocation(gameOfLifeComputeShader.ID, "res"), w, h);
+		glUniform1i(glGetUniformLocation(gameOfLifeRandomNumberComputeShader.ID, "type"), 1);
 		glDispatchCompute(call_x, call_y, 1); //Number of work groups to be launched in x,y and z direction
 
 		gameOfLifeInputTexture->Unbind();
@@ -1180,6 +1233,104 @@ void renderGameOfLife() {
 		gameOfLifeOutputTexture = temp;
 		//nextFrame = true;
 	}
+}
+
+void renderMandala() {
+	/////////////////////////////////////////////////////////////
+	//Image vs Texture:
+	//-Can only write to images not textues
+	//-Can read from images and textues
+	//-Images seem to be slower
+	/////////////////////////////////////////////////////////////
+	glDisable(GL_DEPTH_TEST);
+
+	if (!nextFrame) {
+		gameOfLifeComputeShader.enable();
+
+		glActiveTexture(GL_TEXTURE0);
+		mandalaInputTexture->Bind();
+		glBindImageTexture(0, mandalaInputTexture->Index(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+
+		glActiveTexture(GL_TEXTURE1);
+		mandalaOutputTexture->Bind();
+		glBindImageTexture(1, mandalaOutputTexture->Index(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
+		GLint work_sizeMandala[3];
+		glGetProgramiv(gameOfLifeComputeShader.ID, GL_COMPUTE_WORK_GROUP_SIZE, work_sizeMandala);
+		int wMandala = mandalaTextureWidth, hMandala = mandalaTextureHeight;
+		int call_xMandala = (wMandala / work_sizeMandala[0]) + (wMandala % work_sizeMandala[0] ? 1 : 0);
+		int call_yMandala = (hMandala / work_sizeMandala[1]) + (hMandala % work_sizeMandala[1] ? 1 : 0);
+		glUniform2i(glGetUniformLocation(gameOfLifeComputeShader.ID, "res"), wMandala, hMandala);
+		glUniform1i(glGetUniformLocation(gameOfLifeRandomNumberComputeShader.ID, "type"), 0);
+		glDispatchCompute(call_xMandala, call_yMandala, 1); //Number of work groups to be launched in x,y and z direction
+
+		mandalaInputTexture->Unbind();
+		mandalaOutputTexture->Unbind();
+		gameOfLifeComputeShader.disable();
+	}
+
+
+	//Display
+	standardMiniColorFboShader.enable();
+	glActiveTexture(GL_TEXTURE0);
+	mandalaOutputTexture->Bind();
+	standardMiniColorFboShader.uniform("tex", 0);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.0f, 0.0f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	quad->draw();
+	mandalaOutputTexture->Unbind();
+	standardMiniColorFboShader.disable();
+
+	/*
+	//Debug window
+	//Input Texture
+	standardMiniColorFboShader.enable();
+	glActiveTexture(GL_TEXTURE0);
+	gameOfLifeInputTexture->Bind();
+	standardMiniColorFboShader.uniform("tex", 0);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	quad->draw();
+	gameOfLifeInputTexture->Unbind();
+	standardMiniColorFboShader.disable();
+
+	//Output Texture
+	standardMiniColorFboShader.enable();
+	glActiveTexture(GL_TEXTURE1);
+	gameOfLifeOutputTexture->Bind();
+	standardMiniColorFboShader.uniform("tex", 1);
+	standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.3f));
+	standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 0.6f));
+	quad->draw();
+	gameOfLifeOutputTexture->Unbind();
+	standardMiniColorFboShader.disable();
+	*/
+
+	//Swap images (necessary to stop racing situation)
+	if (!nextFrame) {
+		Texture* temp = mandalaInputTexture;
+		mandalaInputTexture = mandalaOutputTexture;
+		mandalaOutputTexture = temp;
+		nextFrame = true;
+	}
+}
+
+void renderInstancedMesh() {
+	//Draw current position of particles
+	instancedMeshShader.enable();
+	instancedMeshShader.uniform("projMatrix", projMatrix);
+	instancedMeshShader.uniform("viewMatrix", viewMatrix);
+	instancedSphere->drawSphere();
+	instancedMeshShader.disable();
+
+	//Calculate next particle position
+	particlePhysicComputeShader.enable();
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, instancedSphere->vbo[2]);
+	int particleCount = 1000;
+	int workgroupsX = (particleCount / 128) + 1;
+	glDispatchCompute(workgroupsX, 1, 1);
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
+	particlePhysicComputeShader.disable();
 }
 
 /* *********************************************************************************************************
@@ -1256,6 +1407,14 @@ void display() {
 
 		case GAME_OF_LIFE_SHADER:
 			renderGameOfLife();
+			break;
+
+		case MANDALA_SHADER:
+			renderMandala();
+			break;
+
+		case INSTANCED_MESH_SHADER:
+			renderInstancedMesh();
 			break;
 	}
 

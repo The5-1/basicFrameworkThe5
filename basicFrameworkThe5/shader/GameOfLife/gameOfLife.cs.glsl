@@ -17,6 +17,7 @@ layout(binding=0, rgba32f) uniform image2D inputValue;
 layout(binding=1, rgba32f) uniform image2D outputValue;
 	
 uniform ivec2 res;
+uniform int type;
 
 /*
 void copyImage(){
@@ -80,38 +81,38 @@ void main() {
 		///////////////////////////////////////////////////////////////
 		// Interesting bugged Game of life
 		///////////////////////////////////////////////////////////////
-		/*
-		if(neighbours < 2){
-			color = vec4(0.0, 0.0, 0.0, 1.0);
+		if(type == 0){
+			if(neighbours < 2){
+				color = vec4(0.0, 0.0, 0.0, 1.0);
+			}
+			else if(neighbours == 2 || neighbours == 3){
+				color = vec4(1.0, 0.0, 0.0, 1.0);
+			}
+			else{
+				color = vec4(0.0, 0.0, 0.0, 1.0);
+			}
 		}
-		else if(neighbours == 2 || neighbours == 3){
-			color = vec4(1.0, 0.0, 0.0, 1.0);
-		}
-		else{
-			color = vec4(0.0, 0.0, 0.0, 1.0);
-		}
-		*/
 
 		///////////////////////////////////////////////////////////////
 		// Game of life
 		///////////////////////////////////////////////////////////////
-		
-		if(neighbours < 2){
-			color = vec4(0.0, 0.0, 0.0, 1.0);
+		if(type == 1){
+			if(neighbours < 2){
+				color = vec4(0.0, 0.0, 0.0, 1.0);
+			}
+			else if(!alive && neighbours == 3){
+				color = vec4(1.0, 0.0, 0.0, 1.0);
+			}
+			else if(neighbours > 3){
+				color = vec4(0.0, 0.0, 0.0, 1.0);
+			}
+			else if((alive && neighbours == 3) || (alive && neighbours == 2)){
+				color = vec4(1.0, 0.0, 0.0, 1.0);
+			}
+			else{
+				color = vec4(0.0, 0.0, 0.0, 1.0);
+			}
 		}
-		else if(!alive && neighbours == 3){
-			color = vec4(1.0, 0.0, 0.0, 1.0);
-		}
-		else if(neighbours > 3){
-			color = vec4(0.0, 0.0, 0.0, 1.0);
-		}
-		else if((alive && neighbours == 3) || (alive && neighbours == 2)){
-			color = vec4(1.0, 0.0, 0.0, 1.0);
-		}
-		else{
-			color = vec4(0.0, 0.0, 0.0, 1.0);
-		}
-		
 
 		imageStore(outputValue, ivec2(gid), color);
 		

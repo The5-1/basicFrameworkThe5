@@ -16,6 +16,7 @@ layout(local_size_x = 32, local_size_y = 32) in;
 layout(binding=0, rgba32f) uniform image2D outputValue;
 	
 uniform ivec2 res;
+uniform int type;
 
 /* ************************************************************************
 	0. Random Number
@@ -42,40 +43,41 @@ void main() {
 		///////////////////////////////////////////////////////////////
 		// One quad (for bugged scene)
 		///////////////////////////////////////////////////////////////
-		/*
-		vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+		if(type == 0){
+			vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
 
-		if(gid.x == 15 && gid.y == 15){
-			color = vec4(1.0, 0.0, 0.0, 1.0);
+			if(gid.x == 15 && gid.y == 15){
+				color = vec4(1.0, 0.0, 0.0, 1.0);
+			}
+
+			if(gid.x == 16 && gid.y == 15){
+				color = vec4(1.0, 0.0, 0.0, 1.0);
+			}
+
+			if(gid.x == 15 && gid.y == 16){
+				color = vec4(1.0, 0.0, 0.0, 1.0);
+			}
+
+			if(gid.x == 16 && gid.y == 16){
+				color = vec4(1.0, 0.0, 0.0, 1.0);
+			}
+
+			imageStore(outputValue, ivec2(gid), color);
 		}
-
-		if(gid.x == 16 && gid.y == 15){
-			color = vec4(1.0, 0.0, 0.0, 1.0);
-		}
-
-		if(gid.x == 15 && gid.y == 16){
-			color = vec4(1.0, 0.0, 0.0, 1.0);
-		}
-
-		if(gid.x == 16 && gid.y == 16){
-			color = vec4(1.0, 0.0, 0.0, 1.0);
-		}
-
-		imageStore(outputValue, ivec2(gid), color);
-		*/
 
 		///////////////////////////////////////////////////////////////
 		// Random points
 		///////////////////////////////////////////////////////////////
-		
-		vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
-		vec2 relativePixelPos = vec2(float(gid.x)/float(res.x), float(gid.y)/float(res.y));
+		if(type == 1){
+			vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
+			vec2 relativePixelPos = vec2(float(gid.x)/float(res.x), float(gid.y)/float(res.y));
 
-		float reduceRandom = 0.0;
-		float randomNumber = clamp(randomWithSeedsSin(relativePixelPos, 12.9898, 78.233, 43758.5453123) - reduceRandom, 0.0, 1.0);
-		color = vec4(round(randomNumber), 0.0, 0.0, 1.0);
+			float reduceRandom = 0.0;
+			float randomNumber = clamp(randomWithSeedsSin(relativePixelPos, 12.9898, 78.233, 43758.5453123) - reduceRandom, 0.0, 1.0);
+			color = vec4(round(randomNumber), 0.0, 0.0, 1.0);
 
-		imageStore(outputValue, ivec2(gid), color);
+			imageStore(outputValue, ivec2(gid), color);
+		}
 		
 }
 

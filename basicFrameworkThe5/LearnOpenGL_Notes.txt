@@ -51,3 +51,16 @@ http://www.txutxi.com/?p=83
 3.	Buffer Object Streaming
 https://www.khronos.org/opengl/wiki/Buffer_Object_Streaming
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+http://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+4.	Vertex Array Objects (VAO)
+https://stackoverflow.com/questions/5970087/understanding-vertex-array-objects-glgenvertexarrays
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Either create a VAO via:
+glGenVertexArrays(GLsizei n, GLuint *arrays);
+glBindVertexArray(GLuint);
+
+Bind VBO without creating a specific VAO:
+glGenVertexArrays()
+glVertexAttribPointer()

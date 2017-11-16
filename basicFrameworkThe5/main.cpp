@@ -49,7 +49,7 @@ glm::mat4 projMatrix;
 glm::mat4 viewMatrix;
 
 //Light
-glm::vec3 lightDir;
+glm::vec3 lightDir = glm::vec3(0.0f, 100.0f, 0.0f);
 
 //Test-Object
 simpleQuad * quad = 0;
@@ -61,12 +61,12 @@ Mesh boxMesh;
 
 //Skybox
 Skybox skybox;
-char* negz = "C:/Dev/Assets/SkyboxTextures/Yokohama2/negz.jpg";
-char* posz = "C:/Dev/Assets/SkyboxTextures/Yokohama2/posz.jpg";
-char* posy = "C:/Dev/Assets/SkyboxTextures/Yokohama2/posy.jpg";
-char* negy = "C:/Dev/Assets/SkyboxTextures/Yokohama2/negy.jpg";
-char* negx = "C:/Dev/Assets/SkyboxTextures/Yokohama2/negx.jpg";
-char* posx = "C:/Dev/Assets/SkyboxTextures/Yokohama2/posx.jpg";
+char* negz = "D:/Dev/Assets/SkyboxTextures/Yokohama2/negz.jpg";
+char* posz = "D:/Dev/Assets/SkyboxTextures/Yokohama2/posz.jpg";
+char* posy = "D:/Dev/Assets/SkyboxTextures/Yokohama2/posy.jpg";
+char* negy = "D:/Dev/Assets/SkyboxTextures/Yokohama2/negy.jpg";
+char* negx = "D:/Dev/Assets/SkyboxTextures/Yokohama2/negx.jpg";
+char* posx = "D:/Dev/Assets/SkyboxTextures/Yokohama2/posx.jpg";
 
 //Shaders
 Shader basicShader;
@@ -116,6 +116,22 @@ Shader standardMiniDepthFboShader;
 //Particle Physic Shader
 Shader particlePhysicComputeShader;
 
+//Fub test shader
+Shader fubTestShader_forward;
+Shader fubTestShader_postproc;
+float uMetallic = 0.0;
+float uSubsurface = 0.0;
+float uSpecular = 1.0;
+float uRoughness = 0.1;
+float uSpecularTint = 0.0;
+float uAnisotropic = 0.0;
+float uSheen = 0.0;
+float uSheenTint = 0.0;
+float uClearcoat = 0.0;
+float uClearcoatGloss = 0.1;
+float uLightIntensity = 3.0;
+
+
 //Models
 Model nanosuitModel;
 Model sponzaModel;
@@ -150,10 +166,11 @@ enum SHADER_TYPE { STANDARD_SHADER,
 					EMPTY_SHADER,
 					GAME_OF_LIFE_SHADER,
 					MANDALA_SHADER,
-					INSTANCED_MESH_SHADER
+					INSTANCED_MESH_SHADER,
+					FUB_TEST_SHADER
 };
 
-SHADER_TYPE current_Shader = GAME_OF_LIFE_SHADER;
+SHADER_TYPE current_Shader = FUB_TEST_SHADER;
 
 //Shadow
 float depthBias_MomentShadow = 0.005f;
@@ -211,17 +228,22 @@ void setupTweakBar() {
 									{EMPTY_SHADER, "Empty"},
 									{GAME_OF_LIFE_SHADER , "Game of life"},
 									{MANDALA_SHADER, "Mandala"},
-									{INSTANCED_MESH_SHADER, "Instanced Mesh"}
+									{INSTANCED_MESH_SHADER, "Instanced Mesh"},
+									{FUB_TEST_SHADER, "FUB_TEST_SHADER"}
 	};
 
+
 	// ATB identifier for the array
-	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 15); //Last number has to be the size of Shader_array!!
+	TwType ShaderTwType = TwDefineEnum("Shader: ", Shader_array, 16); //Last number has to be the size of Shader_array!!
 
 	// Link it to the tweak bar
 	TwAddVarRW(tweakBar, "Shader", ShaderTwType, &current_Shader, NULL);
 
 	//Seperator
 	TwAddSeparator(tweakBar, "", NULL);
+
+	//Light Dir
+	TwAddVarRW(tweakBar, "lightDir", TW_TYPE_DIR3F, &lightDir, "label='Light Direction'");
 
 	//Fog
 	TwAddVarRW(tweakBar, "rho_Fog", TW_TYPE_FLOAT, &rho_Fog, " label='Rho' min=0.0 step=0.01 max=2.0");
@@ -256,10 +278,27 @@ void setupTweakBar() {
 
 	//Helper-Tweakbar-Button
 	TwAddVarRW(tweakBar, "helperBoolButton", TW_TYPE_BOOLCPP, &helperBoolButton, " label='Set Light to Cam' ");
+
+	//Fub-Tweakbar
+	TwAddVarRW(tweakBar, "uLightIntensity", TW_TYPE_FLOAT, &uLightIntensity, " label='uLightIntensity' min=0.0 step=0.01 max=10.0");
+	TwAddVarRW(tweakBar, "uMetallic", TW_TYPE_FLOAT, &uMetallic, " label='uMetallic' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uRoughness", TW_TYPE_FLOAT, &uRoughness, " label='uRoughness' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uSpecular", TW_TYPE_FLOAT, &uSpecular, " label='uSpecular' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uSpecularTint", TW_TYPE_FLOAT, &uSpecularTint, " label='uSpecularTint' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uClearcoat", TW_TYPE_FLOAT, &uClearcoat, " label='uClearcoat' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uClearcoatGloss", TW_TYPE_FLOAT, &uClearcoatGloss, " label='uClearcoatGloss' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uSheen", TW_TYPE_FLOAT, &uSheen, " label='uSheen' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uSheenTint", TW_TYPE_FLOAT, &uSheenTint, " label='uSheenTint' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uAnisotropic", TW_TYPE_FLOAT, &uAnisotropic, " label='uAnisotropic' min=0.0 step=0.01 max=1.0");
+	TwAddVarRW(tweakBar, "uSubsurface", TW_TYPE_FLOAT, &uSubsurface, " label='uSubsurface' min=0.0 step=0.01 max=1.0");
+
 }
 
 void updateTweakBar() {
 	//Deactivate everything in Tweak-Bar
+	//Light Dir
+	TwDefine("Settings/lightDir visible=false");
+
 	//Fog
 	TwDefine("Settings/fogHeight_Fog visible=false");
 	TwDefine("Settings/fogDirection_Fog visible=false");
@@ -293,6 +332,18 @@ void updateTweakBar() {
 	//Helper-Tweakbar-Button
 	TwDefine("Settings/helperBoolButton visible=false");
 
+	//Fub-Tweakbar
+	TwDefine("Settings/uLightIntensity visible=false");
+	TwDefine("Settings/uMetallic visible=false");
+	TwDefine("Settings/uRoughness visible=false");
+	TwDefine("Settings/uSpecular visible=false");
+	TwDefine("Settings/uSpecularTint visible=false");
+	TwDefine("Settings/uClearcoat visible=false");
+	TwDefine("Settings/uClearcoatGloss visible=false");
+	TwDefine("Settings/uSheen visible=false");
+	TwDefine("Settings/uSheenTint visible=false");
+	TwDefine("Settings/uAnisotropic visible=false");
+	TwDefine("Settings/uSubsurface visible=false");
 
 	//Only show what we need
 	switch (current_Shader) {
@@ -361,6 +412,26 @@ void updateTweakBar() {
 
 		case INSTANCED_MESH_SHADER:
 			break;
+
+		case FUB_TEST_SHADER:
+			TwDefine("Settings/lightDir visible=true");
+
+			TwDefine("Settings/focalPlane visible=true");
+			TwDefine("Settings/blurFactor visible=true");
+			TwDefine("Settings/manualBlur visible=true");
+
+			TwDefine("Settings/uLightIntensity visible=true");
+			TwDefine("Settings/uMetallic visible=true");
+			TwDefine("Settings/uRoughness visible=true");
+			TwDefine("Settings/uSpecular visible=true");
+			TwDefine("Settings/uSpecularTint visible=true");
+			TwDefine("Settings/uClearcoat visible=true");
+			TwDefine("Settings/uClearcoatGloss visible=true");
+			TwDefine("Settings/uSheen visible=true");
+			TwDefine("Settings/uSheenTint visible=true");
+			TwDefine("Settings/uAnisotropic visible=true");
+			TwDefine("Settings/uSubsurface visible=true");
+			break;
 	}
 }
 /* *********************************************************************************************************
@@ -382,10 +453,12 @@ void init() {
 
 	//Komplex-Model
 	//nanosuitModel = *(new Model("C:/Dev/Assets/Nanosuit/nanosuit.obj", false));
-	sponzaModel = *(new Model("C:/Dev/Assets/Sponza_Atrium/sponza.obj", false));
+	sponzaModel = *(new Model("D:/Dev/Assets/Sponza_Atrium/sponza.obj", false));
 
 	//Skybox
 	skybox.createSkybox(negz, posz, posy, negy, negx, posx);
+
+
 
 	//Depth of Field
 	DoF_sat0 = new Texture(WIDTH, HEIGHT, GL_RGBA32F, GL_RGBA, GL_FLOAT);
@@ -446,7 +519,7 @@ void initFBO() {
 	gl_check_error("MomentsShadowMap");
 
 	fboRgbDepth = new FBO("RgbDepth", WIDTH, HEIGHT, FBO_RGBA_DEPTH_32BIT);
-	gl_check_error("MomentsShadowMap");
+	gl_check_error("RgbDepth");
 }
 
 void loadShader(bool init) {
@@ -455,7 +528,6 @@ void loadShader(bool init) {
 	basicShader = Shader("./shader/standard.vs.glsl", "./shader/standard.fs.glsl");
 	modelLoaderShader = Shader("./shader/modelLoader.vs.glsl", "./shader/modelLoader.fs.glsl");
 	modelLoaderShaderGbuffer = Shader("./shader/modelLoaderGbuffer.vs.glsl", "./shader/modelLoaderGbuffer.fs.glsl");
-
 	//Fog
 	halfspaceFogTexturedShader = Shader("./shader/halfspaceFogTextured.vs.glsl", "./shader/halfspaceFogTextured.fs.glsl");
 	exponentialHalfspaceFogTextured = Shader("./shader/exponentialHalfspaceFogTextured.vs.glsl", "./shader/exponentialHalfspaceFogTextured.fs.glsl");
@@ -497,6 +569,11 @@ void loadShader(bool init) {
 
 	//ParticlePhysic
 	particlePhysicComputeShader = Shader("./shader/PhysicEngine/particlePhysic.cs.glsl");
+
+	//fubTestShader
+	fubTestShader_forward = Shader("./shader/fub_forward_test01.vs.glsl", "./shader/fub_forward_test01.fs.glsl");
+	fubTestShader_postproc = Shader("./shader/fub_postproc_test01.vs.glsl", "./shader/fub_postproc_test01.fs.glsl");
+
 }
 
 /* *********************************************************************************************************
@@ -1090,6 +1167,7 @@ void renderDofScene() {
 	
 
 	fboRgbDepth->Bind();
+
 	{
 		glClearColor(0.2f, 0.2f, 0.2f, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1106,6 +1184,7 @@ void renderDofScene() {
 		sponzaModel.Draw(phongDofShader);
 		phongDofShader.disable();
 	}
+
 	fboRgbDepth->Unbind();
 
 	calculateSATforDoF();
@@ -1333,6 +1412,99 @@ void renderInstancedMesh() {
 	particlePhysicComputeShader.disable();
 }
 
+void renderFubTestScene() {
+	
+	fboRgbDepth->Bind();
+	{
+		glClearColor(0.2f, 0.2f, 0.2f, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
+		fubTestShader_forward.enable();
+		fubTestShader_forward.uniform("viewMatrix", viewMatrix);
+		fubTestShader_forward.uniform("projMatrix", projMatrix);
+		fubTestShader_forward.uniform("lightDir", glm::normalize(glm::vec3(0.3f, 0.3f, 0.3f)));
+		glm::mat4 modelMatrix;
+		modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, -1.75f, 0.0f));
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+		fubTestShader_forward.uniform("modelMatrix", modelMatrix);
+		fubTestShader_forward.uniform("texture_diffuse", 0);
+
+		fubTestShader_forward.uniform("cameraPosition", glm::vec3(cam.position.x, cam.position.y, cam.position.z));
+
+		fubTestShader_forward.uniform("uTime", (float)timer.currentTime);
+
+		fubTestShader_forward.uniform("lightDir", lightDir);
+		fubTestShader_forward.uniform("uLightIntensity", uLightIntensity);
+
+		fubTestShader_forward.uniform("uMetallic", uMetallic);
+		fubTestShader_forward.uniform("uSubsurface", uSubsurface);
+		fubTestShader_forward.uniform("uSpecular", uSpecular);
+		fubTestShader_forward.uniform("uRoughness", uRoughness);
+		fubTestShader_forward.uniform("uSpecularTint", uSpecularTint);
+		fubTestShader_forward.uniform("uAnisotropic", uAnisotropic);
+		fubTestShader_forward.uniform("uSheen", uSheen);
+		fubTestShader_forward.uniform("uSheenTint", uSheenTint);
+		fubTestShader_forward.uniform("uClearcoat", uClearcoat);
+		fubTestShader_forward.uniform("uClearcoatGloss", uClearcoatGloss);
+
+		sponzaModel.Draw(fubTestShader_forward);
+
+		fubTestShader_forward.disable();
+	}
+
+	fboRgbDepth->Unbind();
+
+	calculateSATforDoF();
+
+	// apply depth of field
+	{
+		glClearColor(0.2f, 0.2f, 0.2f, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		fubTestShader_postproc.enable();
+
+		glActiveTexture(GL_TEXTURE0);
+		DoF_satResult->Bind();
+		fubTestShader_postproc.uniform("sat", 0);
+
+		glActiveTexture(GL_TEXTURE1);
+		fboRgbDepth->bindTexture(0, 1);
+		fubTestShader_postproc.uniform("color", 1);
+
+		glActiveTexture(GL_TEXTURE2);
+		fboRgbDepth->bindDepth(2);
+		fubTestShader_postproc.uniform("depth", 2);
+
+		fubTestShader_postproc.uniform("manualBlur", manualBlur);
+		fubTestShader_postproc.uniform("blur", blurFactor);
+		fubTestShader_postproc.uniform("focalPlane", focalPlane);
+		fubTestShader_postproc.uniform("time", (float)timer.currentTime);
+
+		fubTestShader_postproc.uniform("viewMatrix", viewMatrix);
+		fubTestShader_postproc.uniform("projMatrix", projMatrix);
+
+		int w = WIDTH, h = HEIGHT;
+		glUniform2i(glGetUniformLocation(fubTestShader_postproc.ID, "res"), w, h);
+
+		quad->draw();
+	}
+
+	gl_check_error("after renderFubTestScene");
+
+	fubTestShader_postproc.disable();
+	DoF_satResult->Unbind();
+	fboRgbDepth->unbindTexture(0, 1);
+	fboRgbDepth->unbindDepth(2);
+
+	//standardMiniColorFboShader.enable();
+	//DoF_satResult->Bind();
+	//standardMiniColorFboShader.uniform("tex", 0);
+	//standardMiniColorFboShader.uniform("downLeft", glm::vec2(0.7f, 0.7f));
+	//standardMiniColorFboShader.uniform("upRight", glm::vec2(1.0f, 1.0f));
+	//quad->draw();
+	//DoF_satResult->Unbind();
+	//standardMiniColorFboShader.disable();
+}
+
 /* *********************************************************************************************************
 Display + Main
 ********************************************************************************************************* */
@@ -1415,6 +1587,10 @@ void display() {
 
 		case INSTANCED_MESH_SHADER:
 			renderInstancedMesh();
+			break;
+
+		case FUB_TEST_SHADER:
+			renderFubTestScene();
 			break;
 	}
 

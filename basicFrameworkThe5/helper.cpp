@@ -171,10 +171,11 @@ void reshape(int w, int h) {
 
 bool _gl_check_error(const char* arg, const char *file, int line, const char *function)
 {
+
 	GLenum err = glGetError();
 
-	while (err != GL_NO_ERROR) {
-		
+	//while (err != GL_NO_ERROR) { //this while loop got no point since we call exit anyways!
+	if (err != GL_NO_ERROR) { //this while loop got no point since we call exit anyways!		
 		string error;
 
 		switch (err) {
@@ -188,8 +189,9 @@ bool _gl_check_error(const char* arg, const char *file, int line, const char *fu
 		std::cerr << "\t GLEW error: " << glewGetErrorString(err) << "(" << err << ")" << std::endl;
 		std::cerr << "\t GL error: " << error.c_str() << endl;
 		std::cerr << "\t file: " << file << " line: " << line << " function: " << function << endl;
-		std::exit(1);
+		//std::exit(1);	//this exits the program!!!
 	}
+
 	return err == 0;
 };
 

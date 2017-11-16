@@ -8,7 +8,9 @@ uniform mat4 projMatrix;
 uniform mat4 viewMatrix;
 
 out vec3 normal;
-out vec4 pos_ec;
+out vec4 posW;
+out vec4 posWV;
+out vec4 posWVP;
 out vec2 TexCoords;
 
 void main()
@@ -16,10 +18,11 @@ void main()
 	mat3 normalMatrix = transpose(inverse(mat3(viewMatrix * modelMatrix)));
 
 	normal = vNormal.xyz;
-	pos_ec = modelMatrix * vec4(vPosition, 1);
-
-    TexCoords = vTexCoords;   
-	vec4 pvmPos = projMatrix * viewMatrix * modelMatrix * vec4(vPosition, 1.0);
-    gl_Position = pvmPos;
+    TexCoords = vTexCoords;
+	
+	posW = modelMatrix * vec4(vPosition, 1);
+	posWV = viewMatrix * posW;
+	posWVP = projMatrix * posWV;
+    gl_Position = posWVP;
 }
 
